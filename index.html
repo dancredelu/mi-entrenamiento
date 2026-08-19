@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mi Entrenamiento">
+  <title>🏋️ Mi Entrenamiento · 12 semanas</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            soft: '0 8px 30px rgba(15,23,42,.08)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-x: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    input, button, select { font: inherit; }
+    input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0; }
+
+    .safe-top { padding-top: env(safe-area-inset-top); }
+    .safe-bottom { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+
+    .exercise-card { scroll-margin-top: 90px; }
+    .touch-btn { min-height: 48px; min-width: 48px; }
+    .primary-btn { min-height: 52px; }
+
+    .week-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+
+    @media (min-width: 768px) {
+      .mobile-only { display: none !important; }
+    }
+    @media (max-width: 767px) {
+      .desktop-only { display: none !important; }
+    }
+
+    /* PDF / impresión */
+    #printArea { display: none; }
+
+    @media print {
+      @page { size: A4 landscape; margin: 5mm; }
+
+      body {
+        background: white !important;
+        color: #111827 !important;
+        font-size: 9px;
+      }
+
+      #app, #setupModal, #profileModal, #toast { display: none !important; }
+      #printArea { display: block !important; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        page-break-inside: auto;
+      }
+      tr { page-break-inside: avoid; }
+      th, td {
+        border: 1px solid #94a3b8;
+        padding: 3px 4px;
+        text-align: center;
+      }
+      th:first-child, td:first-child { text-align: left; }
+      h1, h2 { margin-top: 0; }
+      .print-page { page-break-after: auto !important; break-inside: avoid; page-break-inside: avoid; }
+      .print-page:last-child { page-break-after: auto; }
+    }
+
+    /* Evita zoom accidental en iPhone al enfocar inputs */
+    @media (max-width: 767px) {
+      input, select, textarea { font-size: 16px !important; }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-100 text-slate-900">
+
+<div id="app" class="min-h-screen">
+
+  <!-- CABECERA -->
+  <header class="safe-top sticky top-0 z-40 bg-slate-950 text-white shadow-lg">
+    <div class="max-w-6xl mx-auto px-3 sm:px-5">
+      <div class="h-[68px] flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h1 class="text-lg sm:text-2xl font-black leading-tight truncate">🏋️ Mi entrenamiento</h1>
+          <p id="profileSubtitle" class="text-[11px] sm:text-sm text-slate-300 truncate"></p>
+        </div>
+        <button onclick="openProfile()"
+          class="touch-btn shrink-0 rounded-2xl bg-white/10 active:bg-white/20 px-3 text-sm font-bold">
+          ⚙️
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-3 sm:px-5 py-3 sm:py-6">
+
+    <!-- SELECTOR DE SEMANA -->
+    <section class="bg-white rounded-3xl border border-slate-200 shadow-soft p-3 mb-3">
+      <div class="flex items-center justify-between gap-2">
+        <button onclick="changeWeek(-1)" class="touch-btn rounded-2xl bg-slate-100 active:bg-slate-200 text-2xl font-black">‹</button>
+
+        <div class="text-center min-w-0">
+          <div class="text-[10px] uppercase tracking-[.18em] text-slate-500 font-black">Semana</div>
+          <div class="flex items-center justify-center gap-2">
+            <span id="weekTitle" class="text-xl font-black">1 / 12</span>
+            <span id="weekStatusDot" class="week-dot bg-slate-300"></span>
+          </div>
+          <div id="weekDate" class="text-[11px] text-slate-500"></div>
+        </div>
+
+        <button onclick="changeWeek(1)" class="touch-btn rounded-2xl bg-slate-100 active:bg-slate-200 text-2xl font-black">›</button>
+      </div>
+
+      <div class="mt-3 h-2 bg-slate-100 rounded-full overflow-hidden">
+        <div id="weekProgressBar" class="h-full bg-violet-600 rounded-full transition-all" style="width:0%"></div>
+      </div>
+
+      <!-- PC: 12 botones -->
+      <div id="desktopWeeks" class="desktop-only grid grid-cols-12 gap-1.5 mt-3"></div>
+
+      <!-- Móvil: solo semanas recientes / selector compacto -->
+      <div class="mobile-only mt-3 flex items-center justify-center gap-2">
+        <button onclick="jumpWeek(-3)" class="touch-btn rounded-xl bg-slate-100 text-xs font-bold">−3</button>
+        <select id="weekSelect" onchange="selectWeekFromSelect(this.value)"
+          class="h-12 flex-1 max-w-[180px] rounded-xl border border-slate-300 bg-white px-3 text-center font-black">
+        </select>
+        <button onclick="jumpWeek(3)" class="touch-btn rounded-xl bg-slate-100 text-xs font-bold">+3</button>
+      </div>
+    </section>
+
+    <!-- TABS DE ENTRENAMIENTO -->
+    <section class="mb-3">
+      <div class="grid grid-cols-3 gap-1.5 bg-slate-200 p-1 rounded-2xl">
+        <button data-day="monday" onclick="selectDay('monday')"
+          class="day-tab rounded-xl py-3 text-xs sm:text-sm font-black">
+          💪 <span class="block sm:inline">LUNES</span><span class="hidden sm:inline"> · A</span>
+        </button>
+        <button data-day="wednesday" onclick="selectDay('wednesday')"
+          class="day-tab rounded-xl py-3 text-xs sm:text-sm font-black">
+          🔥 <span class="block sm:inline">MIÉRCOLES</span><span class="hidden sm:inline"> · B</span>
+        </button>
+        <button data-day="friday" onclick="selectDay('friday')"
+          class="day-tab rounded-xl py-3 text-xs sm:text-sm font-black">
+          ⚡ <span class="block sm:inline">VIERNES</span><span class="hidden sm:inline"> · C</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- RESUMEN MÓVIL -->
+    <section class="mobile-only bg-slate-950 text-white rounded-3xl p-4 mb-3 shadow-soft">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div id="mobileDayTitle" class="font-black text-lg">💪 Fuerza A</div>
+          <div id="mobileDayProgressText" class="text-xs text-slate-300 mt-0.5">0 de 7 ejercicios</div>
+        </div>
+        <div class="text-right">
+          <div id="mobileDayPercent" class="text-2xl font-black">0%</div>
+          <div class="text-[10px] uppercase text-slate-400 font-bold">completado</div>
+        </div>
+      </div>
+      <div class="mt-3 h-2 bg-white/10 rounded-full overflow-hidden">
+        <div id="mobileDayProgressBar" class="h-full bg-emerald-400 rounded-full transition-all" style="width:0%"></div>
+      </div>
+    </section>
+
+    <!-- PANEL DE EJERCICIOS -->
+    <section id="dayPanel"></section>
+
+    <!-- ACCIONES -->
+    <section class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <button onclick="exportExcel()"
+        class="primary-btn rounded-2xl bg-emerald-600 active:bg-emerald-700 text-white font-black shadow-sm">
+        📊 Exportar Excel
+      </button>
+      <button onclick="printPDF()"
+        class="primary-btn rounded-2xl bg-indigo-600 active:bg-indigo-700 text-white font-black shadow-sm">
+        🖨️ PDF horizontal
+      </button>
+      <button onclick="resetRecords()"
+        class="primary-btn rounded-2xl bg-white active:bg-red-50 text-red-600 border border-red-200 font-black">
+        🗑️ Borrar registros
+      </button>
+    </section>
+
+    <div class="text-center text-[11px] text-slate-500 mt-5 mb-8">
+      💾 Guardado automático en este dispositivo.
+    </div>
+  </main>
+
+  <!-- BOTÓN FIJO: SIGUIENTE EJERCICIO -->
+  <div id="nextExerciseBar"
+    class="mobile-only fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 safe-bottom shadow-[0_-8px_25px_rgba(15,23,42,.08)]">
+    <div class="px-3 pt-2">
+      <button onclick="saveAndNext()"
+        class="w-full primary-btn rounded-2xl bg-violet-600 active:bg-violet-700 text-white font-black shadow-lg">
+        ✅ Guardar y siguiente ejercicio
+      </button>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-24 sm:bottom-5 z-[60] hidden">
+    <div class="bg-slate-950 text-white rounded-2xl px-4 py-3 shadow-2xl text-sm font-bold whitespace-nowrap"></div>
+  </div>
+</div>
+
+<!-- MODAL INICIAL -->
+<div id="setupModal" class="fixed inset-0 z-[70] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6">
+    <div class="text-center">
+      <div class="text-5xl">🏋️</div>
+      <h2 class="text-2xl font-black mt-2">Tu plan de 12 semanas</h2>
+      <p class="text-sm text-slate-500 mt-1">Vamos a configurar tu registro.</p>
+    </div>
+
+    <form onsubmit="saveInitialProfile(event)" class="mt-6 space-y-4">
+      <div>
+        <label class="text-sm font-black">Nombre y apellido</label>
+        <input id="initialName" required autocomplete="name"
+          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 px-4 outline-none focus:ring-2 focus:ring-violet-500"
+          placeholder="Ej.: Daniel Crespo">
+      </div>
+
+      <div>
+        <label class="text-sm font-black">Fecha de inicio</label>
+        <input id="initialDate" required type="date"
+          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 px-4 outline-none focus:ring-2 focus:ring-violet-500">
+      </div>
+
+      <button class="w-full h-14 rounded-2xl bg-violet-600 active:bg-violet-700 text-white font-black text-base">
+        🚀 Empezar
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL PERFIL -->
+<div id="profileModal" class="fixed inset-0 z-[70] bg-slate-950/75 backdrop-blur-sm hidden items-center justify-center p-4">
+  <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-black">⚙️ Mi perfil</h2>
+      <button onclick="closeProfile()" class="touch-btn text-3xl text-slate-400">×</button>
+    </div>
+
+    <form onsubmit="saveProfile(event)" class="mt-5 space-y-4">
+      <div>
+        <label class="text-sm font-black">Nombre y apellido</label>
+        <input id="editName" required
+          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 px-4 outline-none focus:ring-2 focus:ring-violet-500">
+      </div>
+
+      <div>
+        <label class="text-sm font-black">Fecha de inicio</label>
+        <input id="editDate" required type="date"
+          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 px-4 outline-none focus:ring-2 focus:ring-violet-500">
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" onclick="closeProfile()"
+          class="h-14 rounded-2xl bg-slate-100 font-black">Cancelar</button>
+        <button class="h-14 rounded-2xl bg-violet-600 text-white font-black">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ÁREA DE IMPRESIÓN -->
+<div id="printArea"></div>
+
+<script>
+/* ==========================================================
+   🏋️ MI ENTRENAMIENTO · VERSIÓN OPTIMIZADA PARA IPHONE
+   - Un único archivo HTML
+   - Tailwind por CDN
+   - Datos en localStorage
+   - 12 semanas
+   - Fuerza A/B/C según el plan suministrado
+   ========================================================== */
+
+const STORAGE_KEY = 'gym12weeks_mobile_v2';
+
+const plan = {
+  monday: {
+    name: 'Fuerza A',
+    fullName: 'Lunes · Fuerza A',
+    emoji: '💪',
+    exercises: [
+      { name: 'Prensa inclinada', reps: '3×8-10', search: 'prensa inclinada gimnasio técnica' },
+      { name: 'Press banca mancuernas', reps: '3×8-10', search: 'press banca mancuernas técnica' },
+      { name: 'Remo unilateral', reps: '3×8-10', search: 'remo unilateral mancuerna técnica' },
+      { name: 'Peso muerto rumano', reps: '3×8-10', search: 'peso muerto rumano técnica' },
+      { name: 'Press hombro neutro', reps: '3×8-10', search: 'press hombro neutro mancuernas técnica' },
+      { name: 'Face Pull', reps: '3×15', search: 'face pull técnica' },
+      { name: 'Scaption', reps: '2-3×12-15', search: 'scaption ejercicio técnica' }
+    ],
+    note: 'Core: seguir rutina indicada. Empezar siempre por el lado izquierdo en ejercicios unilaterales.'
+  },
+  wednesday: {
+    name: 'Fuerza B',
+    fullName: 'Miércoles · Fuerza B',
+    emoji: '🔥',
+    exercises: [
+      { name: 'Zancadas', reps: '3×8-10', search: 'zancadas ejercicio técnica gimnasio' },
+      { name: 'Jalón unilateral', reps: '3×8-10', search: 'jalón unilateral polea técnica' },
+      { name: 'Press inclinado', reps: '3×8-10', search: 'press inclinado técnica gimnasio' },
+      { name: 'Hip Thrust', reps: '3×8-10', search: 'hip thrust técnica gimnasio' },
+      { name: 'Remo polea unilateral', reps: '3×8-10', search: 'remo polea unilateral técnica' },
+      { name: 'Reverse Fly', reps: '2-3×12-15', search: 'reverse fly técnica gimnasio' }
+    ],
+    note: 'Core: seguir rutina indicada. Empezar siempre por el lado izquierdo en ejercicios unilaterales.'
+  },
+  friday: {
+    name: 'Fuerza C',
+    fullName: 'Viernes · Fuerza C',
+    emoji: '⚡',
+    exercises: [
+      { name: 'Sentadilla Goblet/Prensa', reps: '3×8-10', search: 'sentadilla goblet técnica' },
+      { name: 'Peso muerto', reps: '3×8-10', search: 'peso muerto convencional técnica' },
+      { name: 'Remo unilateral', reps: '3×8-10', search: 'remo unilateral mancuerna técnica' },
+      { name: 'Máquina pecho', reps: '3×8-10', search: 'máquina pecho press técnica gimnasio' },
+      { name: 'Curl femoral', reps: '3×8-10', search: 'curl femoral máquina técnica' },
+      { name: 'Elevaciones laterales', reps: '2-3×12-15', search: 'elevaciones laterales técnica mancuernas' }
+    ],
+    note: 'Core: seguir rutina indicada. Empezar siempre por el lado izquierdo en ejercicios unilaterales.'
+  }
+};
+
+const dayLabels = {
+  monday: 'Lunes',
+  wednesday: 'Miércoles',
+  friday: 'Viernes'
+};
+
+let state = loadState();
+let currentWeek = 1;
+let currentDay = 'monday';
+let currentExercise = 0;
+
+/* -------------------- DATOS -------------------- */
+
+function defaultState() {
+  return {
+    profile: { name: '', startDate: '' },
+    records: {}
+  };
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : defaultState();
+  } catch {
+    return defaultState();
+  }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function key(week, day, index) {
+  return `${week}|${day}|${index}`;
+}
+
+function getRecord(week, day, index) {
+  return state.records[key(week, day, index)] || {
+    sets: '',
+    weight: '',
+    done: false
+  };
+}
+
+function updateRecord(week, day, index, changes) {
+  const old = getRecord(week, day, index);
+  state.records[key(week, day, index)] = { ...old, ...changes };
+  saveState();
+  updateAllStats();
+}
+
+/* -------------------- FECHAS -------------------- */
+
+function localISODate(date = new Date()) {
+  const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDate(value) {
+  if (!value) return '';
+  const d = new Date(value + 'T12:00:00');
+  return d.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+}
+
+function weekStartDate(week) {
+  if (!state.profile.startDate) return '';
+  const d = new Date(state.profile.startDate + 'T12:00:00');
+  d.setDate(d.getDate() + (week - 1) * 7);
+  return localISODate(d);
+}
+
+/* -------------------- UTILIDADES -------------------- */
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }[c]));
+}
+
+function isMobile() {
+  return window.matchMedia('(max-width: 767px)').matches;
+}
+
+function getPreviousRecord(day, index) {
+  if (currentWeek <= 1) return null;
+  return getRecord(currentWeek - 1, day, index);
+}
+
+function weekProgress(week) {
+  let total = 0;
+  let done = 0;
+
+  Object.keys(plan).forEach(day => {
+    plan[day].exercises.forEach((_, i) => {
+      total++;
+      if (getRecord(week, day, i).done) done++;
+    });
+  });
+
+  return total ? Math.round(done / total * 100) : 0;
+}
+
+function dayProgress(week, day) {
+  const total = plan[day].exercises.length;
+  const done = plan[day].exercises.filter((_, i) =>
+    getRecord(week, day, i).done
+  ).length;
+
+  return {
+    total,
+    done,
+    percent: total ? Math.round(done / total * 100) : 0
+  };
+}
+
+/* -------------------- CABECERA / SEMANAS -------------------- */
+
+function renderProfile() {
+  const el = document.getElementById('profileSubtitle');
+
+  if (state.profile.name) {
+    el.textContent =
+      `${state.profile.name} · Inicio ${formatDate(state.profile.startDate)}`;
+  } else {
+    el.textContent = 'Plan de fuerza · 12 semanas';
+  }
+}
+
+function renderWeekNavigation() {
+  const progress = weekProgress(currentWeek);
+
+  document.getElementById('weekTitle').textContent =
+    `${currentWeek} / 12`;
+
+  document.getElementById('weekDate').textContent =
+    state.profile.startDate
+      ? `Inicio: ${formatDate(weekStartDate(currentWeek))}`
+      : '';
+
+  document.getElementById('weekProgressBar').style.width = `${progress}%`;
+
+  const dot = document.getElementById('weekStatusDot');
+  dot.className =
+    `week-dot ${
+      progress === 100 ? 'bg-emerald-500' :
+      progress > 0 ? 'bg-amber-400' :
+      'bg-slate-300'
+    }`;
+
+  /* PC */
+  const desktop = document.getElementById('desktopWeeks');
+  desktop.innerHTML = '';
+
+  for (let w = 1; w <= 12; w++) {
+    const p = weekProgress(w);
+    const active = w === currentWeek;
+
+    const button = document.createElement('button');
+
+    button.className =
+      `rounded-xl py-2 text-xs font-black transition ${
+        active
+          ? 'bg-violet-600 text-white'
+          : p === 100
+            ? 'bg-emerald-100 text-emerald-800'
+            : p > 0
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      }`;
+
+    button.textContent = `S${w}`;
+    button.onclick = () => {
+      currentWeek = w;
+      currentExercise = 0;
+      renderAll();
+    };
+
+    desktop.appendChild(button);
+  }
+
+  /* Móvil */
+  const select = document.getElementById('weekSelect');
+  select.innerHTML = '';
+
+  for (let w = 1; w <= 12; w++) {
+    const option = document.createElement('option');
+    option.value = w;
+    option.textContent =
+      `Semana ${w}${weekProgress(w) === 100 ? ' · ✅' : ''}`;
+    option.selected = w === currentWeek;
+    select.appendChild(option);
+  }
+}
+
+function selectWeekFromSelect(value) {
+  currentWeek = Number(value);
+  currentExercise = 0;
+  renderAll();
+}
+
+function jumpWeek(amount) {
+  currentWeek = Math.max(1, Math.min(12, currentWeek + amount));
+  currentExercise = 0;
+  renderAll();
+}
+
+function changeWeek(delta) {
+  currentWeek = Math.max(1, Math.min(12, currentWeek + delta));
+  currentExercise = 0;
+  renderAll();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* -------------------- DÍAS -------------------- */
+
+function renderDayTabs() {
+  document.querySelectorAll('.day-tab').forEach(button => {
+    const active = button.dataset.day === currentDay;
+
+    button.className =
+      `day-tab rounded-xl py-3 text-xs sm:text-sm font-black transition ${
+        active
+          ? 'bg-slate-950 text-white shadow-sm'
+          : 'bg-transparent text-slate-600'
+      }`;
+  });
+}
+
+function selectDay(day) {
+  currentDay = day;
+  currentExercise = 0;
+  renderAll();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* -------------------- TARJETAS DE EJERCICIO -------------------- */
+
+function exerciseCard(exercise, index) {
+  const r = getRecord(currentWeek, currentDay, index);
+  const previous = getPreviousRecord(currentDay, index);
+
+  const videoUrl =
+    `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.search)}`;
+
+  const previousText =
+    previous && previous.weight
+      ? `Última vez: ${escapeHtml(previous.weight)} kg`
+      : 'Sin registro anterior';
+
+  const previousWeight =
+    previous && Number(previous.weight)
+      ? Number(previous.weight)
+      : null;
+
+  const currentWeight =
+    r.weight !== '' ? Number(r.weight) : null;
+
+  let trend = '';
+  if (previousWeight !== null && currentWeight !== null) {
+    if (currentWeight > previousWeight) {
+      trend = `<span class="text-emerald-600 font-black">⬆️ +${(currentWeight - previousWeight).toFixed(1).replace('.0','')} kg</span>`;
+    } else if (currentWeight < previousWeight) {
+      trend = `<span class="text-orange-600 font-black">⬇️ ${(currentWeight - previousWeight).toFixed(1).replace('.0','')} kg</span>`;
+    } else {
+      trend = `<span class="text-slate-500 font-black">➡️ Igual</span>`;
+    }
+  }
+
+  const done = r.done;
+
+  return `
+    <article id="exercise-${index}"
+      class="exercise-card bg-white rounded-3xl border ${
+        done ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-slate-200'
+      } shadow-soft overflow-hidden">
+
+      <div class="p-4 sm:p-5">
+
+        <!-- Título -->
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 shrink-0 rounded-xl ${
+            done ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700'
+          } flex items-center justify-center font-black">
+            ${done ? '✓' : index + 1}
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <a href="${videoUrl}" target="_blank" rel="noopener noreferrer"
+                  class="text-[17px] sm:text-lg font-black text-slate-900 underline decoration-violet-300 underline-offset-4">
+                  ${escapeHtml(exercise.name)} 🎥
+                </a>
+                <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">
+                    ${escapeHtml(exercise.reps)}
+                  </span>
+                  <span class="text-[11px] text-slate-400">
+                    ${previousText}
+                  </span>
+                </div>
+              </div>
+
+              <label class="shrink-0 flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  ${done ? 'checked' : ''}
+                  onchange="toggleDone(${index}, this.checked)"
+                  class="w-6 h-6 accent-emerald-600">
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONTROLES -->
+        <div class="grid grid-cols-2 gap-2 mt-4">
+
+          <div>
+            <div class="text-[11px] font-black uppercase tracking-wide text-slate-500 mb-1.5">
+              🔢 Series
+            </div>
+            <div class="flex h-14">
+              <button onclick="changeSets(${index}, -1)"
+                class="w-12 rounded-l-2xl bg-slate-100 active:bg-slate-200 text-xl font-black">−</button>
+
+              <input id="sets-${index}"
+                type="number"
+                inputmode="numeric"
+                min="0"
+                step="1"
+                value="${escapeHtml(r.sets)}"
+                placeholder="0"
+                onchange="saveInput(${index}, 'sets', this.value)"
+                class="min-w-0 flex-1 text-center bg-slate-50 border-y border-slate-200 text-xl font-black outline-none">
+
+              <button onclick="changeSets(${index}, 1)"
+                class="w-12 rounded-r-2xl bg-slate-100 active:bg-slate-200 text-xl font-black">+</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[11px] font-black uppercase tracking-wide text-slate-500 mb-1.5">
+              🏋️ Peso máximo
+            </div>
+            <div class="flex h-14">
+              <button onclick="changeWeight(${index}, -0.5)"
+                class="w-12 rounded-l-2xl bg-slate-100 active:bg-slate-200 text-xl font-black">−</button>
+
+              <input id="weight-${index}"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="0.5"
+                value="${escapeHtml(r.weight)}"
+                placeholder="kg"
+                onchange="saveInput(${index}, 'weight', this.value)"
+                class="min-w-0 flex-1 text-center bg-slate-50 border-y border-slate-200 text-xl font-black outline-none">
+
+              <button onclick="changeWeight(${index}, 0.5)"
+                class="w-12 rounded-r-2xl bg-slate-100 active:bg-slate-200 text-xl font-black">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROGRESO -->
+        ${trend ? `
+          <div class="mt-3 text-center text-xs bg-slate-50 rounded-xl py-2">
+            ${trend}
+          </div>
+        ` : ''}
+
+        <!-- BOTÓN HECHO -->
+        <button onclick="toggleDone(${index}, ${!done})"
+          class="mt-3 w-full h-12 rounded-2xl font-black text-sm ${
+            done
+              ? 'bg-emerald-100 text-emerald-800'
+              : 'bg-slate-100 active:bg-emerald-100 text-slate-700'
+          }">
+          ${done ? '✅ Ejercicio realizado' : '☐ Marcar como realizado'}
+        </button>
+      </div>
+    </article>
+  `;
+}
+
+/* -------------------- RENDER DEL DÍA -------------------- */
+
+function renderDay() {
+  const data = plan[currentDay];
+  const progress = dayProgress(currentWeek, currentDay);
+
+  const panel = document.getElementById('dayPanel');
+
+  panel.innerHTML = `
+    <div class="mb-3">
+      <div class="flex items-end justify-between gap-2">
+        <div>
+          <div class="text-[11px] uppercase tracking-[.18em] font-black text-slate-500">
+            ${data.emoji} ${escapeHtml(data.fullName)}
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-black mt-1">
+            Semana ${currentWeek}
+          </h2>
+        </div>
+
+        <div class="desktop-only text-right">
+          <div class="text-xs text-slate-500">Completado</div>
+          <div class="text-2xl font-black">${progress.percent}%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      ${data.exercises.map((ex, i) => exerciseCard(ex, i)).join('')}
+    </div>
+
+    <div class="mt-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900">
+      📝 <strong>Nota:</strong> ${escapeHtml(data.note)}
+    </div>
+  `;
+
+  updateMobileDaySummary();
+}
+
+/* -------------------- EDICIÓN -------------------- */
+
+function saveInput(index, field, value) {
+  let clean = value;
+
+  if (field === 'sets') {
+    clean = value === '' ? '' : Math.max(0, Math.round(Number(value)));
+  }
+
+  if (field === 'weight') {
+    clean = value === '' ? '' : Math.max(0, Number(value));
+  }
+
+  updateRecord(currentWeek, currentDay, index, { [field]: clean });
+  renderDay();
+  focusCurrentExercise(index);
+}
+
+function changeSets(index, amount) {
+  const r = getRecord(currentWeek, currentDay, index);
+  const value = Math.max(0, (Number(r.sets) || 0) + amount);
+
+  updateRecord(currentWeek, currentDay, index, { sets: value });
+  renderDay();
+}
+
+function changeWeight(index, amount) {
+  const r = getRecord(currentWeek, currentDay, index);
+  const value = Math.max(0, (Number(r.weight) || 0) + amount);
+
+  updateRecord(currentWeek, currentDay, index, {
+    weight: Number(value.toFixed(1))
+  });
+
+  renderDay();
+}
+
+function toggleDone(index, checked) {
+  updateRecord(currentWeek, currentDay, index, { done: checked });
+  currentExercise = index;
+  renderDay();
+
+  if (checked) {
+    toast('✅ Ejercicio guardado');
+  }
+}
+
+function saveAndNext() {
+  const index = currentExercise;
+  const r = getRecord(currentWeek, currentDay, index);
+
+  const setsInput = document.getElementById(`sets-${index}`);
+  const weightInput = document.getElementById(`weight-${index}`);
+
+  const sets = setsInput ? setsInput.value : r.sets;
+  const weight = weightInput ? weightInput.value : r.weight;
+
+  updateRecord(currentWeek, currentDay, index, {
+    sets,
+    weight,
+    done: true
+  });
+
+  if (currentExercise < plan[currentDay].exercises.length - 1) {
+    currentExercise++;
+    renderDay();
+
+    setTimeout(() => {
+      const next = document.getElementById(`exercise-${currentExercise}`);
+      if (next) next.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 50);
+
+    toast('➡️ Siguiente ejercicio');
+  } else {
+    toast('🎉 ¡Entrenamiento completado!');
+    renderDay();
+  }
+}
+
+function focusCurrentExercise(index) {
+  currentExercise = index;
+}
+
+/* -------------------- RESÚMENES -------------------- */
+
+function updateMobileDaySummary() {
+  const p = dayProgress(currentWeek, currentDay);
+
+  document.getElementById('mobileDayTitle').textContent =
+    `${plan[currentDay].emoji} ${plan[currentDay].name}`;
+
+  document.getElementById('mobileDayProgressText').textContent =
+    `${p.done} de ${p.total} ejercicios`;
+
+  document.getElementById('mobileDayPercent').textContent =
+    `${p.percent}%`;
+
+  document.getElementById('mobileDayProgressBar').style.width =
+    `${p.percent}%`;
+}
+
+function updateAllStats() {
+  renderWeekNavigation();
+  updateMobileDaySummary();
+}
+
+/* -------------------- PERFIL -------------------- */
+
+function saveInitialProfile(event) {
+  event.preventDefault();
+
+  state.profile.name =
+    document.getElementById('initialName').value.trim();
+
+  state.profile.startDate =
+    document.getElementById('initialDate').value;
+
+  saveState();
+
+  document.getElementById('setupModal').style.display = 'none';
+
+  renderAll();
+  toast('🚀 ¡Plan configurado!');
+}
+
+function openProfile() {
+  document.getElementById('editName').value =
+    state.profile.name || '';
+
+  document.getElementById('editDate').value =
+    state.profile.startDate || '';
+
+  const modal = document.getElementById('profileModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function closeProfile() {
+  const modal = document.getElementById('profileModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+function saveProfile(event) {
+  event.preventDefault();
+
+  state.profile.name =
+    document.getElementById('editName').value.trim();
+
+  state.profile.startDate =
+    document.getElementById('editDate').value;
+
+  saveState();
+  closeProfile();
+  renderAll();
+  toast('✅ Perfil actualizado');
+}
+
+/* -------------------- TOAST -------------------- */
+
+function toast(message) {
+  const el = document.getElementById('toast');
+  el.querySelector('div').textContent = message;
+  el.classList.remove('hidden');
+
+  clearTimeout(window.toastTimer);
+  window.toastTimer = setTimeout(() => {
+    el.classList.add('hidden');
+  }, 1800);
+}
+
+/* -------------------- EXPORTAR CSV / EXCEL -------------------- */
+
+function exportExcel() {
+  const rows = [
+    ['Nombre', state.profile.name],
+    ['Fecha inicio', state.profile.startDate],
+    [],
+    [
+      'Semana',
+      'Día',
+      'Ejercicio',
+      'Repeticiones objetivo',
+      'Series realizadas',
+      'Peso máximo (kg)',
+      'Completado'
+    ]
+  ];
+
+  for (let w = 1; w <= 12; w++) {
+    Object.keys(plan).forEach(day => {
+      plan[day].exercises.forEach((ex, i) => {
+        const r = getRecord(w, day, i);
+
+        rows.push([
+          w,
+          dayLabels[day],
+          ex.name,
+          ex.reps,
+          r.sets,
+          r.weight,
+          r.done ? 'Sí' : 'No'
+        ]);
+      });
+    });
+  }
+
+  const csv = rows.map(row =>
+    row.map(v =>
+      `"${String(v ?? '').replace(/"/g, '""')}"`
+    ).join(';')
+  ).join('\r\n');
+
+  const blob = new Blob(
+    ['\ufeff' + csv],
+    { type: 'text/csv;charset=utf-8;' }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+
+  a.href = url;
+  a.download =
+    `Entrenamiento_12_Semanas_${safeFilename(
+      state.profile.name || 'registro'
+    )}.csv`;
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+
+  toast('📊 Archivo compatible con Excel generado');
+}
+
+function safeFilename(value) {
+  return String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9 _-]/g, '')
+    .trim()
+    .replace(/\s+/g, '_');
+}
+
+/* -------------------- PDF HORIZONTAL -------------------- */
+
+function printPDF() {
+  buildPrintArea();
+  window.print();
+}
+
+function buildPrintArea() {
+  const area = document.getElementById('printArea');
+
+  let html = `
+    <div style="font-family:Arial,sans-serif">
+      <h1 style="font-size:22px;margin:0 0 4px">
+        🏋️ Registro de entrenamiento · 12 semanas
+      </h1>
+      <div style="font-size:11px;margin-bottom:12px">
+        <strong>${escapeHtml(state.profile.name || '')}</strong>
+        · Inicio: ${escapeHtml(formatDate(state.profile.startDate) || '—')}
+      </div>
+  `;
+
+  Object.keys(plan).forEach((day, dayIndex) => {
+    html += `
+      <div class="print-page" style="margin-bottom:5px;">
+        <h2 style="font-size:12px;margin:3px 0 3px">
+          ${plan[day].emoji} ${escapeHtml(plan[day].fullName)}
+        </h2>
+
+        <table style="font-size:7px;line-height:1.05;">
+          <thead>
+            <tr>
+              <th style="width:16%;">Ejercicio</th>
+              <th style="width:5%;">Reps</th>
+              ${Array.from({length:12}, (_,i) =>
+                `<th>S${i+1}<br><span style="font-weight:normal">series / kg</span></th>`
+              ).join('')}
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    plan[day].exercises.forEach((ex, i) => {
+      html += `
+        <tr>
+          <td>${escapeHtml(ex.name)}</td>
+          <td>${escapeHtml(ex.reps)}</td>
+      `;
+
+      for (let w = 1; w <= 12; w++) {
+        const r = getRecord(w, day, i);
+
+        html += `
+          <td>
+            ${escapeHtml(r.sets || '—')}
+            /
+            ${escapeHtml(r.weight || '—')}
+            ${r.done ? ' ✓' : ''}
+          </td>
+        `;
+      }
+
+      html += `</tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+
+        <p style="font-size:7px;margin:2px 0">
+          ${escapeHtml(plan[day].note)}
+        </p>
+      </div>
+    `;
+  });
+
+  html += `
+      <p style="font-size:8px;color:#64748b">
+        ✓ = ejercicio marcado como realizado.
+        Cada celda muestra: series realizadas / peso máximo en kg.
+      </p>
+    </div>
+  `;
+
+  area.innerHTML = html;
+}
+
+/* -------------------- BORRADO -------------------- */
+
+function resetRecords() {
+  const confirmation = confirm(
+    '¿Quieres borrar todos los registros de las 12 semanas?\\n\\n' +
+    'El nombre y la fecha de inicio NO se borrarán.'
+  );
+
+  if (!confirmation) return;
+
+  state.records = {};
+  saveState();
+
+  renderAll();
+  toast('🗑️ Registros borrados');
+}
+
+/* -------------------- RENDER GENERAL -------------------- */
+
+function renderAll() {
+  renderProfile();
+  renderWeekNavigation();
+  renderDayTabs();
+  renderDay();
+}
+
+/* -------------------- SWIPE DE SEMANAS -------------------- */
+
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', event => {
+  if (!isMobile()) return;
+
+  const touch = event.changedTouches[0];
+  touchStartX = touch.screenX;
+  touchStartY = touch.screenY;
+}, { passive: true });
+
+document.addEventListener('touchend', event => {
+  if (!isMobile()) return;
+
+  const touch = event.changedTouches[0];
+  const dx = touch.screenX - touchStartX;
+  const dy = touch.screenY - touchStartY;
+
+  if (Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 1.4) {
+    return;
+  }
+
+  if (dx < 0 && currentWeek < 12) {
+    currentWeek++;
+    currentExercise = 0;
+    renderAll();
+    toast(`Semana ${currentWeek}`);
+  }
+
+  if (dx > 0 && currentWeek > 1) {
+    currentWeek--;
+    currentExercise = 0;
+    renderAll();
+    toast(`Semana ${currentWeek}`);
+  }
+}, { passive: true });
+
+/* -------------------- INICIO -------------------- */
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('initialDate').value = localISODate();
+
+  if (state.profile.name && state.profile.startDate) {
+    document.getElementById('setupModal').style.display = 'none';
+  }
+
+  renderAll();
+});
+
+window.addEventListener('resize', () => {
+  /* No recarga datos: solo asegura que el layout se adapte */
+  updateAllStats();
+});
+</script>
+
+</body>
+</html>
