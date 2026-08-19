@@ -1106,8 +1106,13 @@ function selectCardioDay(day) {
 
 function weekDayDate(week, day) {
   if (!state.profile.startDate) return '';
-  const d = new Date(weekStartDate(week) + 'T12:00:00');
-  d.setDate(d.getDate() + ({tuesday:1, thursday:3, saturday:5, sunday:6}[day]));
+
+  // Cardio: la semana 1 comienza exactamente en la fecha de inicio del plan.
+  // Así, si el plan empieza un martes, ese primer martes conserva esa fecha.
+  const start = new Date(state.profile.startDate + 'T12:00:00');
+  const offsets = { tuesday: 0, thursday: 2, saturday: 4, sunday: 5 };
+  const d = new Date(start);
+  d.setDate(d.getDate() + ((week - 1) * 7) + (offsets[day] || 0));
   return formatDate(localISODate(d));
 }
 
