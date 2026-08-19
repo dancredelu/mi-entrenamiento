@@ -11,6 +11,7 @@
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -195,12 +196,107 @@
     <!-- PANEL DE EJERCICIOS -->
     <section id="dayPanel"></section>
 
+
+    <!-- CARDIO -->
+    <section class="mt-6">
+      <div class="mb-3">
+        <div class="text-[11px] uppercase tracking-[.18em] font-black text-slate-500">❤️ Cardio</div>
+        <h2 class="text-2xl sm:text-3xl font-black mt-1">Entrenamiento cardiovascular</h2>
+        <p class="text-sm text-slate-500 mt-1">Selecciona un día y registra tu actividad, distancia y tiempo.</p>
+      </div>
+
+      <!-- Navegación de días, igual que el bloque de fuerza -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <button type="button" onclick="selectCardioDay('tuesday')" id="cardioTab-tuesday"
+          class="cardio-day-tab rounded-2xl px-4 py-3 font-black transition">
+          🔥 MARTES
+        </button>
+        <button type="button" onclick="selectCardioDay('thursday')" id="cardioTab-thursday"
+          class="cardio-day-tab rounded-2xl px-4 py-3 font-black transition">
+          ⚡ JUEVES
+        </button>
+        <button type="button" onclick="selectCardioDay('saturday')" id="cardioTab-saturday"
+          class="cardio-day-tab rounded-2xl px-4 py-3 font-black transition">
+          🚴 SÁBADO
+        </button>
+        <button type="button" onclick="selectCardioDay('sunday')" id="cardioTab-sunday"
+          class="cardio-day-tab rounded-2xl px-4 py-3 font-black transition">
+          🌄 DOMINGO
+        </button>
+      </div>
+
+      <!-- Día seleccionado -->
+      <div id="cardioDayPanel" class="bg-white rounded-3xl border border-slate-200 shadow-soft overflow-hidden">
+        <div class="p-4 sm:p-5">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <div id="cardioSelectedDay" class="text-xl font-black"></div>
+              <div id="cardioSelectedDate" class="text-xs text-slate-400 mt-1"></div>
+            </div>
+            <label class="flex items-center gap-2 bg-emerald-50 text-emerald-800 rounded-2xl px-3 py-2 font-black text-sm">
+              <input id="cardioDone" type="checkbox" onchange="saveSelectedCardio('done', this.checked)"
+                class="w-6 h-6 accent-emerald-600">
+              Hecho
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1">Actividad</label>
+              <select id="cardioActivity" onchange="saveSelectedCardio('activity', this.value)"
+                class="w-full h-14 rounded-2xl border border-slate-300 bg-white px-4 font-black text-base outline-none focus:ring-2 focus:ring-violet-500">
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1">Distancia (km)</label>
+              <input id="cardioDistance" type="number" inputmode="decimal" min="0" step="0.01"
+                onchange="saveSelectedCardio('distance', this.value)"
+                class="w-full h-14 rounded-2xl border border-slate-300 px-4 text-center font-black text-lg outline-none focus:ring-2 focus:ring-violet-500"
+                placeholder="0,00">
+            </div>
+
+            <div>
+              <label class="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1">Tiempo medio</label>
+              <input id="cardioAvgTime" type="text" inputmode="decimal"
+                onchange="saveSelectedCardio('avgTime', this.value)"
+                class="w-full h-14 rounded-2xl border border-slate-300 px-4 text-center font-black text-lg outline-none focus:ring-2 focus:ring-violet-500"
+                placeholder="Ej. 6:10">
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <label class="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1">Notas</label>
+            <input id="cardioNotes" type="text"
+              onchange="saveSelectedCardio('notes', this.value)"
+              class="w-full h-14 rounded-2xl border border-slate-300 px-4 font-medium outline-none focus:ring-2 focus:ring-violet-500"
+              placeholder="Opcional">
+          </div>
+
+          <div class="mt-4 flex items-center justify-between gap-3">
+            <div id="cardioSaveStatus" class="text-xs font-bold text-slate-400">Los datos se guardan automáticamente.</div>
+            <button type="button" onclick="saveSelectedCardio('done', true)"
+              class="rounded-2xl bg-emerald-600 text-white px-5 py-3 font-black active:scale-95 transition">
+              ✅ Guardar cardio
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3 bg-violet-50 border border-violet-200 rounded-2xl p-4">
+        <div class="font-black text-violet-900">📈 Evolución del cardio</div>
+        <div id="cardioEvolution" class="mt-2 text-sm text-violet-900"></div>
+      </div>
+    </section>
+
     <!-- ACCIONES -->
-    <section class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-      <button onclick="exportExcel()"
-        class="primary-btn rounded-2xl bg-emerald-600 active:bg-emerald-700 text-white font-black shadow-sm">
-        📊 Exportar Excel
-      </button>
+    <section class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+      <button onclick="exportExcel()" class="primary-btn rounded-2xl bg-emerald-600 active:bg-emerald-700 text-white font-black shadow-sm">📊 Exportar Excel</button>
+      <button onclick="exportBackup()" class="primary-btn rounded-2xl bg-sky-600 active:bg-sky-700 text-white font-black shadow-sm">💾 Copia de seguridad</button>
+      <label class="primary-btn rounded-2xl bg-sky-100 active:bg-sky-200 text-sky-800 border border-sky-200 font-black flex items-center justify-center cursor-pointer">
+        📤 Restaurar copia
+        <input type="file" accept=".json,application/json" class="hidden" onchange="importBackup(event)">
+      </label>
       <button onclick="printPDF()"
         class="primary-btn rounded-2xl bg-indigo-600 active:bg-indigo-700 text-white font-black shadow-sm">
         🖨️ PDF horizontal
@@ -811,6 +907,8 @@ function changeSets(index, amount) {
 
   updateRecord(currentWeek, currentDay, index, { sets: value });
   renderDay();
+  renderCardio();
+  updateCardioSummary();
 }
 
 function changeWeight(index, amount) {
@@ -961,69 +1059,215 @@ function toast(message) {
   }, 1800);
 }
 
-/* -------------------- EXPORTAR CSV / EXCEL -------------------- */
 
-function exportExcel() {
-  const rows = [
-    ['Nombre', state.profile.name],
-    ['Fecha inicio', state.profile.startDate],
-    [],
-    [
-      'Semana',
-      'Día',
-      'Ejercicio',
-      'Repeticiones objetivo',
-      'Series realizadas',
-      'Peso máximo (kg)',
-      'Completado'
-    ]
-  ];
+/* -------------------- CARDIO -------------------- */
+const cardioDays = ['tuesday','thursday','saturday','sunday'];
+const cardioDayLabels = {
+  tuesday:'Martes',
+  thursday:'Jueves',
+  saturday:'Sábado',
+  sunday:'Domingo'
+};
+const cardioDayEmojis = {
+  tuesday:'🔥',
+  thursday:'⚡',
+  saturday:'🚴',
+  sunday:'🌄'
+};
+const cardioOptions = ['Correr','Caminar','MTB','Bici Carretera','Otro'];
+let currentCardioDay = 'tuesday';
 
-  for (let w = 1; w <= 12; w++) {
-    Object.keys(plan).forEach(day => {
-      plan[day].exercises.forEach((ex, i) => {
-        const r = getRecord(w, day, i);
+function cardioKey(week, day) {
+  return `cardio|${week}|${day}`;
+}
 
-        rows.push([
-          w,
-          dayLabels[day],
-          ex.name,
-          ex.reps,
-          r.sets,
-          r.weight,
-          r.done ? 'Sí' : 'No'
-        ]);
-      });
+function getCardioRecord(week, day) {
+  const saved = state.records[cardioKey(week, day)];
+  return {
+    activity: saved && cardioOptions.includes(saved.activity) ? saved.activity : 'Correr',
+    distance: saved && saved.distance !== undefined ? saved.distance : '',
+    avgTime: saved && saved.avgTime !== undefined ? saved.avgTime : '',
+    notes: saved && saved.notes !== undefined ? saved.notes : '',
+    done: !!(saved && saved.done)
+  };
+}
+
+function updateCardioRecord(week, day, changes) {
+  const old = getCardioRecord(week, day);
+  state.records[cardioKey(week, day)] = { ...old, ...changes };
+  saveState();
+}
+
+function selectCardioDay(day) {
+  if (!cardioDays.includes(day)) return;
+  currentCardioDay = day;
+  renderCardio();
+}
+
+function weekDayDate(week, day) {
+  if (!state.profile.startDate) return '';
+  const d = new Date(weekStartDate(week) + 'T12:00:00');
+  d.setDate(d.getDate() + ({tuesday:1, thursday:3, saturday:5, sunday:6}[day]));
+  return formatDate(localISODate(d));
+}
+
+function saveSelectedCardio(field, value) {
+  let clean = value;
+
+  if (field === 'distance') {
+    clean = value === '' ? '' : Math.max(0, Number(value));
+  }
+
+  updateCardioRecord(currentWeek, currentCardioDay, { [field]: clean });
+
+  const status = document.getElementById('cardioSaveStatus');
+  if (status) {
+    status.textContent = '💾 Guardado';
+    status.className = 'text-xs font-bold text-emerald-600';
+    setTimeout(() => {
+      status.textContent = 'Los datos se guardan automáticamente.';
+      status.className = 'text-xs font-bold text-slate-400';
+    }, 1200);
+  }
+
+  updateCardioEvolution();
+  updateCardioSummary();
+}
+
+function renderCardio() {
+  const tabs = document.querySelectorAll('.cardio-day-tab');
+
+  tabs.forEach(tab => {
+    const day = tab.id.replace('cardioTab-', '');
+    tab.classList.toggle('active', day === currentCardioDay);
+  });
+
+  const c = getCardioRecord(currentWeek, currentCardioDay);
+
+  const title = document.getElementById('cardioSelectedDay');
+  const date = document.getElementById('cardioSelectedDate');
+  const activity = document.getElementById('cardioActivity');
+  const distance = document.getElementById('cardioDistance');
+  const avgTime = document.getElementById('cardioAvgTime');
+  const notes = document.getElementById('cardioNotes');
+  const done = document.getElementById('cardioDone');
+
+  if (title) {
+    title.textContent = `${cardioDayEmojis[currentCardioDay]} ${cardioDayLabels[currentCardioDay]}`;
+  }
+
+  if (date) {
+    date.textContent = weekDayDate(currentWeek, currentCardioDay) || `Semana ${currentWeek}`;
+  }
+
+  if (activity) {
+    activity.innerHTML = cardioOptions.map(option =>
+      `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`
+    ).join('');
+    activity.value = c.activity;
+  }
+
+  if (distance) distance.value = c.distance;
+  if (avgTime) avgTime.value = c.avgTime;
+  if (notes) notes.value = c.notes;
+  if (done) done.checked = c.done;
+
+  updateCardioEvolution();
+  updateCardioSummary();
+}
+
+function updateCardioSummary() {
+  // Compatible con la versión anterior si el elemento existe.
+  const el = document.getElementById('cardioTotalSummary');
+  if (!el) return;
+
+  el.textContent = cardioDays.filter(day => getCardioRecord(currentWeek, day).done).length;
+}
+
+function updateCardioEvolution() {
+  const el = document.getElementById('cardioEvolution');
+  if (!el) return;
+
+  let currentDistance = 0;
+  let totalDistance = 0;
+  let completed = 0;
+
+  cardioDays.forEach(day => {
+    const c = getCardioRecord(currentWeek, day);
+    if (c.distance !== '') currentDistance += Number(c.distance) || 0;
+    if (c.done) completed++;
+  });
+
+  for (let week = 1; week <= 12; week++) {
+    cardioDays.forEach(day => {
+      const c = getCardioRecord(week, day);
+      if (c.distance !== '') totalDistance += Number(c.distance) || 0;
     });
   }
 
-  const csv = rows.map(row =>
-    row.map(v =>
-      `"${String(v ?? '').replace(/"/g, '""')}"`
-    ).join(';')
-  ).join('\r\n');
+  let previousDistance = 0;
 
-  const blob = new Blob(
-    ['\ufeff' + csv],
-    { type: 'text/csv;charset=utf-8;' }
-  );
+  if (currentWeek > 1) {
+    cardioDays.forEach(day => {
+      const c = getCardioRecord(currentWeek - 1, day);
+      if (c.distance !== '') previousDistance += Number(c.distance) || 0;
+    });
+  }
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  let comparison = `📏 ${currentDistance.toFixed(2)} km registrados esta semana.`;
 
-  a.href = url;
-  a.download =
-    `Entrenamiento_12_Semanas_${safeFilename(
-      state.profile.name || 'registro'
-    )}.csv`;
+  if (currentWeek > 1) {
+    if (currentDistance > previousDistance) {
+      comparison = `⬆️ ${currentDistance.toFixed(2)} km esta semana frente a ${previousDistance.toFixed(2)} km la anterior.`;
+    } else if (currentDistance < previousDistance) {
+      comparison = `⬇️ ${currentDistance.toFixed(2)} km esta semana frente a ${previousDistance.toFixed(2)} km la anterior.`;
+    } else {
+      comparison = `➡️ ${currentDistance.toFixed(2)} km esta semana, igual que la anterior.`;
+    }
+  }
 
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  el.innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div class="bg-white rounded-2xl p-3">
+        <div class="text-[10px] uppercase font-black text-slate-400">Semana actual</div>
+        <div class="text-lg font-black">${currentDistance.toFixed(2)} km</div>
+      </div>
+      <div class="bg-white rounded-2xl p-3">
+        <div class="text-[10px] uppercase font-black text-slate-400">Sesiones hechas</div>
+        <div class="text-lg font-black">${completed}/4</div>
+      </div>
+      <div class="bg-white rounded-2xl p-3">
+        <div class="text-[10px] uppercase font-black text-slate-400">Media por día</div>
+        <div class="text-lg font-black">${(currentDistance / 4).toFixed(2)} km</div>
+      </div>
+      <div class="bg-white rounded-2xl p-3">
+        <div class="text-[10px] uppercase font-black text-slate-400">Total 12 semanas</div>
+        <div class="text-lg font-black">${totalDistance.toFixed(2)} km</div>
+      </div>
+    </div>
+    <div class="mt-2 font-bold">${comparison}</div>
+  `;
+}
 
-  setTimeout(() => URL.revokeObjectURL(url), 500);
+/* -------------------- EXPORTAR CSV / EXCEL -------------------- */
 
-  toast('📊 Archivo compatible con Excel generado');
+function exportExcel(){
+  if(typeof XLSX==='undefined'){toast('⚠️ No se pudo cargar el exportador Excel');return;}
+  const wb=XLSX.utils.book_new();
+  const strength=[['Nombre',state.profile.name],['Fecha inicio',state.profile.startDate],[],['Semana','Día','Ejercicio','Repeticiones objetivo','Series realizadas','Peso máximo (kg)','Completado']];
+  for(let w=1;w<=12;w++) Object.keys(plan).forEach(day=>plan[day].exercises.forEach((ex,i)=>{const r=getRecord(w,day,i);strength.push([w,dayLabels[day],ex.name,ex.reps,r.sets,r.weight,r.done?'Sí':'No']);}));
+  const ws1=XLSX.utils.aoa_to_sheet(strength); ws1['!cols']=[{wch:8},{wch:12},{wch:28},{wch:20},{wch:18},{wch:18},{wch:12}]; XLSX.utils.book_append_sheet(wb,ws1,'Fuerza');
+  const cardio=[['Nombre',state.profile.name],['Fecha inicio',state.profile.startDate],[],['Semana','Fecha','Día','Actividad','Distancia (km)','Tiempo medio','Notas','Completado']];
+  for(let w=1;w<=12;w++) cardioDays.forEach(day=>{
+    const c=getCardioRecord(w,day);
+    cardio.push([w,weekDayDate(w,day),cardioDayLabels[day],c.activity,c.distance,c.avgTime,c.notes,c.done?'Sí':'No']);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(cardio); ws2['!cols']=[{wch:8},{wch:13},{wch:13},{wch:20},{wch:18},{wch:18},{wch:35},{wch:12}]; XLSX.utils.book_append_sheet(wb,ws2,'Cardio');
+  const evo=[['Semana','Distancia total (km)','Sesiones completadas']];
+  for(let w=1;w<=12;w++){let d=0,done=0;cardioDays.forEach(day=>{const c=getCardioRecord(w,day);if(c.distance!=='')d+=Number(c.distance)||0;if(c.done)done++;});evo.push([w,Number(d.toFixed(2)),done]);}
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(evo),'Evolución');
+  XLSX.writeFile(wb,`Entrenamiento_12_Semanas_${safeFilename(state.profile.name||'registro')}.xlsx`);
+  toast('📊 Excel .xlsx generado');
 }
 
 function safeFilename(value) {
@@ -1042,83 +1286,55 @@ function printPDF() {
   window.print();
 }
 
-function buildPrintArea() {
-  const area = document.getElementById('printArea');
-
-  let html = `
-    <div style="font-family:Arial,sans-serif">
-      <h1 style="font-size:22px;margin:0 0 4px">
-        🏋️ Registro de entrenamiento · 12 semanas
-      </h1>
-      <div style="font-size:11px;margin-bottom:12px">
-        <strong>${escapeHtml(state.profile.name || '')}</strong>
-        · Inicio: ${escapeHtml(formatDate(state.profile.startDate) || '—')}
-      </div>
-  `;
-
-  Object.keys(plan).forEach((day, dayIndex) => {
-    html += `
-      <div class="print-page" style="margin-bottom:5px;">
-        <h2 style="font-size:12px;margin:3px 0 3px">
-          ${plan[day].emoji} ${escapeHtml(plan[day].fullName)}
-        </h2>
-
-        <table style="font-size:7px;line-height:1.05;">
-          <thead>
-            <tr>
-              <th style="width:16%;">Ejercicio</th>
-              <th style="width:5%;">Reps</th>
-              ${Array.from({length:12}, (_,i) =>
-                `<th>S${i+1}<br><span style="font-weight:normal">series / kg</span></th>`
-              ).join('')}
-            </tr>
-          </thead>
-          <tbody>
-    `;
-
-    plan[day].exercises.forEach((ex, i) => {
-      html += `
-        <tr>
-          <td>${escapeHtml(ex.name)}</td>
-          <td>${escapeHtml(ex.reps)}</td>
-      `;
-
-      for (let w = 1; w <= 12; w++) {
-        const r = getRecord(w, day, i);
-
-        html += `
-          <td>
-            ${escapeHtml(r.sets || '—')}
-            /
-            ${escapeHtml(r.weight || '—')}
-            ${r.done ? ' ✓' : ''}
-          </td>
-        `;
-      }
-
-      html += `</tr>`;
+function buildPrintArea(){
+  const area=document.getElementById('printArea');
+  let html=`<div style="font-family:Arial,sans-serif">
+    <h1 style="font-size:14px;margin:0 0 2px">🏋️ Registro de entrenamiento · 12 semanas</h1>
+    <div style="font-size:7px;margin-bottom:3px"><strong>${escapeHtml(state.profile.name||'')}</strong> · Inicio: ${escapeHtml(formatDate(state.profile.startDate)||'—')}</div>`;
+  Object.keys(plan).forEach(day=>{
+    html+=`<div style="margin-bottom:2px;break-inside:avoid;page-break-inside:avoid">
+      <h2 style="font-size:8px;margin:2px 0">${plan[day].emoji} ${escapeHtml(plan[day].fullName)}</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:5px;line-height:1">
+      <thead><tr><th style="border:1px solid #94a3b8;padding:1px;text-align:left;width:17%">Ejercicio</th><th style="border:1px solid #94a3b8;padding:1px;width:5%">Reps</th>${Array.from({length:12},(_,i)=>`<th style="border:1px solid #94a3b8;padding:1px">S${i+1}<br><span style="font-weight:normal">series/kg</span></th>`).join('')}</tr></thead><tbody>`;
+    plan[day].exercises.forEach((ex,i)=>{
+      html+=`<tr><td style="border:1px solid #94a3b8;padding:1px;text-align:left">${escapeHtml(ex.name)}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(ex.reps)}</td>`;
+      for(let w=1;w<=12;w++){const r=getRecord(w,day,i);html+=`<td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(r.sets||'—')}/${escapeHtml(r.weight||'—')}${r.done?' ✓':''}</td>`;}
+      html+='</tr>';
     });
-
-    html += `
-          </tbody>
-        </table>
-
-        <p style="font-size:7px;margin:2px 0">
-          ${escapeHtml(plan[day].note)}
-        </p>
-      </div>
-    `;
+    html+='</tbody></table></div>';
   });
+  html+=`<div style="margin-top:2px;break-inside:avoid;page-break-inside:avoid"><h2 style="font-size:8px;margin:2px 0">❤️ Cardio · 4 días por semana</h2>
+  <table style="width:100%;border-collapse:collapse;font-size:5px;line-height:1"><thead><tr>
+  <th style="border:1px solid #94a3b8;padding:1px">S</th><th style="border:1px solid #94a3b8;padding:1px">Día</th><th style="border:1px solid #94a3b8;padding:1px">Actividad</th><th style="border:1px solid #94a3b8;padding:1px">Km</th><th style="border:1px solid #94a3b8;padding:1px">Tiempo medio</th><th style="border:1px solid #94a3b8;padding:1px">Notas</th><th style="border:1px solid #94a3b8;padding:1px">✓</th></tr></thead><tbody>`;
+  for(let w=1;w<=12;w++) cardioDays.forEach(day=>{const c=getCardioRecord(w,day);html+=`<tr><td style="border:1px solid #94a3b8;padding:1px">${w}</td><td style="border:1px solid #94a3b8;padding:1px">${cardioDayLabels[day]}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(c.activity)}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(c.distance||'—')}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(c.avgTime||'—')}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(c.notes||'')}</td><td style="border:1px solid #94a3b8;padding:1px">${c.done?'✓':''}</td></tr>`;});
+  html+=`</tbody></table></div><p style="font-size:5px;color:#64748b;margin-top:2px">✓ = realizado. Fuerza: series/peso máximo en kg. Cardio: distancia y tiempo medio.</p></div>`;
+  area.innerHTML=html;
+}
 
-  html += `
-      <p style="font-size:8px;color:#64748b">
-        ✓ = ejercicio marcado como realizado.
-        Cada celda muestra: series realizadas / peso máximo en kg.
-      </p>
-    </div>
-  `;
 
-  area.innerHTML = html;
+/* -------------------- COPIA DE SEGURIDAD -------------------- */
+function exportBackup(){
+  const backup={app:'Mi Entrenamiento · 12 semanas',version:3,exportedAt:new Date().toISOString(),state};
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=`Backup_Entrenamiento_${safeFilename(state.profile.name||'registro')}.json`;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500);
+  toast('💾 Copia de seguridad guardada');
+}
+function importBackup(event){
+  const file=event.target.files&&event.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const parsed=JSON.parse(reader.result),incoming=parsed.state||parsed;
+      if(!incoming||typeof incoming!=='object'||!incoming.profile||!incoming.records)throw new Error();
+      if(!confirm('¿Quieres restaurar esta copia?\\n\\nLos datos actuales serán sustituidos por los de la copia.')){event.target.value='';return;}
+      state={profile:{name:String(incoming.profile.name||''),startDate:String(incoming.profile.startDate||'')},records:incoming.records||{}};
+      saveState();currentWeek=1;currentDay='monday';currentExercise=0;renderAll();toast('📥 Copia restaurada correctamente');
+    }catch(e){alert('No se pudo restaurar la copia. Usa un JSON generado por esta aplicación.')}
+    event.target.value='';
+  };
+  reader.readAsText(file);
 }
 
 /* -------------------- BORRADO -------------------- */
@@ -1145,6 +1361,9 @@ function renderAll() {
   renderWeekNavigation();
   renderDayTabs();
   renderDay();
+
+  renderCardio();
+  updateCardioSummary();
 }
 
 /* -------------------- SWIPE DE SEMANAS -------------------- */
