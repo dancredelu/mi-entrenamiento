@@ -7,21 +7,23 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Mi Entrenamiento">
-  <title>🏋️ Mi Entrenamiento · 12 semanas</title>
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>🏋️ Mi Entrenamiento · Plan editable</title>
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f172a'/%3E%3Ctext x='50' y='66' font-size='54' text-anchor='middle'%3E%F0%9F%8F%8B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f172a'/%3E%3Ctext x='50' y='66' font-size='54' text-anchor='middle'%3E%F0%9F%8F%8B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          boxShadow: {
-            soft: '0 8px 30px rgba(15,23,42,.08)'
-          }
-        }
-      }
-    }
+    try {
+      tailwind.config = {
+        darkMode: 'class',
+        theme: { extend: { boxShadow: { soft: '0 8px 30px rgba(15,23,42,.08)' } } }
+      };
+    } catch (e) { console.error('Tailwind no cargó (sin conexión al CDN).', e); }
   </script>
 
   <style>
@@ -34,7 +36,7 @@
       overscroll-behavior-x: none;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-    input, button, select { font: inherit; }
+    input, button, select, textarea { font: inherit; }
     input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0; }
@@ -49,46 +51,23 @@
     .touch-btn { min-height: 48px; min-width: 48px; }
     .primary-btn { min-height: 52px; }
 
-    .week-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      flex: 0 0 auto;
-    }
+    .week-dot { width: 8px; height: 8px; border-radius: 999px; flex: 0 0 auto; }
+    .pr-row { background: #ecfdf5; }
+    html.dark .pr-row { background: #052e21; }
 
-    @media (min-width: 768px) {
-      .mobile-only { display: none !important; }
-    }
-    @media (max-width: 767px) {
-      .desktop-only { display: none !important; }
-    }
+    @media (min-width: 768px) { .mobile-only { display: none !important; } }
+    @media (max-width: 767px) { .desktop-only { display: none !important; } }
 
     /* PDF / impresión */
     #printArea { display: none; }
-
     @media print {
       @page { size: A4 landscape; margin: 5mm; }
-
-      body {
-        background: white !important;
-        color: #111827 !important;
-        font-size: 9px;
-      }
-
-      #app, #setupModal, #profileModal, #toast { display: none !important; }
+      body { background: white !important; color: #111827 !important; font-size: 9px; }
+      #app, #setupModal, #profileModal, #planModal, #toast { display: none !important; }
       #printArea { display: block !important; }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        page-break-inside: auto;
-      }
+      table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
       tr { page-break-inside: avoid; }
-      th, td {
-        border: 1px solid #94a3b8;
-        padding: 3px 4px;
-        text-align: center;
-      }
+      th, td { border: 1px solid #94a3b8; padding: 3px 4px; text-align: center; }
       th:first-child, td:first-child { text-align: left; }
       h1, h2 { margin-top: 0; }
       .print-page { page-break-after: auto !important; break-inside: avoid; page-break-inside: avoid; }
@@ -102,9 +81,9 @@
   </style>
 </head>
 
-<body class="bg-slate-100 text-slate-900">
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
 
-<div id="app" class="min-h-screen">
+<div id="app" class="min-h-screen pb-8">
 
   <!-- CABECERA -->
   <header class="safe-top sticky top-0 z-40 bg-slate-950 text-white shadow-lg">
@@ -114,10 +93,11 @@
           <h1 class="text-lg sm:text-2xl font-black leading-tight truncate">🏋️ Mi entrenamiento</h1>
           <p id="profileSubtitle" class="text-[11px] sm:text-sm text-slate-300 truncate"></p>
         </div>
-        <button onclick="openProfile()"
-          class="touch-btn shrink-0 rounded-2xl bg-white/10 active:bg-white/20 px-3 text-sm font-bold">
-          ⚙️
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <button id="themeToggle" class="touch-btn rounded-2xl bg-white/10 active:bg-white/20 px-3 text-sm font-bold">🌙</button>
+          <button id="openPlanEditorBtn" class="touch-btn rounded-2xl bg-white/10 active:bg-white/20 px-3 text-sm font-bold" title="Editar plan">🛠️</button>
+          <button id="openProfileBtn" class="touch-btn rounded-2xl bg-white/10 active:bg-white/20 px-3 text-sm font-bold">⚙️</button>
+        </div>
       </div>
     </div>
   </header>
@@ -125,55 +105,36 @@
   <main class="max-w-6xl mx-auto px-3 sm:px-5 py-3 sm:py-6">
 
     <!-- SELECTOR DE SEMANA -->
-    <section class="bg-white rounded-3xl border border-slate-200 shadow-soft p-3 mb-3">
+    <section class="bg-white dark:bg-slate-900 dark:border-slate-800 rounded-3xl border border-slate-200 shadow-soft p-3 mb-3">
       <div class="flex items-center justify-between gap-2">
-        <button onclick="changeWeek(-1)" class="touch-btn rounded-2xl bg-slate-100 active:bg-slate-200 text-2xl font-black">‹</button>
-
+        <button id="weekPrev" class="touch-btn rounded-2xl bg-slate-100 dark:bg-slate-800 active:bg-slate-200 text-2xl font-black">‹</button>
         <div class="text-center min-w-0">
-          <div class="text-[10px] uppercase tracking-[.18em] text-slate-500 font-black">Semana</div>
+          <div class="text-[10px] uppercase tracking-[.18em] text-slate-500 dark:text-slate-400 font-black">Semana</div>
           <div class="flex items-center justify-center gap-2">
             <span id="weekTitle" class="text-xl font-black">1 / 12</span>
             <span id="weekStatusDot" class="week-dot bg-slate-300"></span>
           </div>
-          <div id="weekDate" class="text-[11px] text-slate-500"></div>
+          <div id="weekDate" class="text-[11px] text-slate-500 dark:text-slate-400"></div>
         </div>
-
-        <button onclick="changeWeek(1)" class="touch-btn rounded-2xl bg-slate-100 active:bg-slate-200 text-2xl font-black">›</button>
+        <button id="weekNext" class="touch-btn rounded-2xl bg-slate-100 dark:bg-slate-800 active:bg-slate-200 text-2xl font-black">›</button>
       </div>
 
-      <div class="mt-3 h-2 bg-slate-100 rounded-full overflow-hidden">
+      <div class="mt-3 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
         <div id="weekProgressBar" class="h-full bg-violet-600 rounded-full transition-all" style="width:0%"></div>
       </div>
 
-      <!-- PC: 12 botones -->
-      <div id="desktopWeeks" class="desktop-only grid grid-cols-12 gap-1.5 mt-3"></div>
+      <div id="desktopWeeks" class="desktop-only grid gap-1.5 mt-3"></div>
 
-      <!-- Móvil: solo semanas recientes / selector compacto -->
       <div class="mobile-only mt-3 flex items-center justify-center gap-2">
-        <button onclick="jumpWeek(-3)" class="touch-btn rounded-xl bg-slate-100 text-xs font-bold">−3</button>
-        <select id="weekSelect" onchange="selectWeekFromSelect(this.value)"
-          class="h-12 flex-1 max-w-[180px] rounded-xl border border-slate-300 bg-white px-3 text-center font-black">
-        </select>
-        <button onclick="jumpWeek(3)" class="touch-btn rounded-xl bg-slate-100 text-xs font-bold">+3</button>
+        <button id="weekJumpBack" class="touch-btn rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">−3</button>
+        <select id="weekSelect" class="h-12 flex-1 max-w-[180px] rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 bg-white px-3 text-center font-black"></select>
+        <button id="weekJumpFwd" class="touch-btn rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">+3</button>
       </div>
     </section>
 
     <!-- TABS DE ENTRENAMIENTO -->
     <section class="mb-3">
-      <div class="grid grid-cols-3 gap-1.5 bg-slate-200 p-1 rounded-2xl">
-        <button data-day="monday" onclick="selectDay('monday')"
-          class="day-tab rounded-xl py-3 text-xs sm:text-sm font-black">
-          💪 <span class="block sm:inline">LUNES</span><span class="hidden sm:inline"> · A</span>
-        </button>
-        <button data-day="wednesday" onclick="selectDay('wednesday')"
-          class="day-tab rounded-xl py-3 text-xs sm:text-sm font-black">
-          🔥 <span class="block sm:inline">MIÉRCOLES</span><span class="hidden sm:inline"> · B</span>
-        </button>
-        <button data-day="friday" onclick="selectDay('friday')"
-          class="day-tab rounded-xl py-3 text-xs sm:text-sm font-black">
-          ⚡ <span class="block sm:inline">VIERNES</span><span class="hidden sm:inline"> · C</span>
-        </button>
-      </div>
+      <div id="dayTabs" class="flex gap-1.5 bg-slate-200 dark:bg-slate-800 p-1 rounded-2xl overflow-x-auto no-scrollbar"></div>
     </section>
 
     <!-- RESUMEN MÓVIL -->
@@ -196,130 +157,98 @@
     <!-- PANEL DE EJERCICIOS -->
     <section id="dayPanel"></section>
 
-
     <!-- CARDIO -->
     <section class="mt-6">
       <div class="mb-3">
-        <div class="text-[11px] uppercase tracking-[.18em] font-black text-slate-500">❤️ Cardio</div>
+        <div class="text-[11px] uppercase tracking-[.18em] font-black text-slate-500 dark:text-slate-400">❤️ Cardio</div>
         <h2 class="text-2xl sm:text-3xl font-black mt-1">Entrenamiento cardiovascular</h2>
-        <p class="text-sm text-slate-500 mt-1">Selecciona un día y registra tu actividad, distancia y tiempo.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Selecciona un día y registra tu actividad, distancia y tiempo.</p>
       </div>
 
-      <!-- Navegación de días, igual que el bloque de fuerza -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-        <button type="button" onclick="selectCardioDay('tuesday')" id="cardioTab-tuesday"
-          class="cardio-day-tab rounded-2xl px-4 py-3 font-black transition">
-          🔥 MARTES
-        </button>
-        <button type="button" onclick="selectCardioDay('thursday')" id="cardioTab-thursday"
-          class="cardio-day-tab rounded-2xl px-4 py-3 font-black transition">
-          ⚡ JUEVES
-        </button>
-        <button type="button" onclick="selectCardioDay('saturday')" id="cardioTab-saturday"
-          class="cardio-day-tab rounded-2xl px-4 py-3 font-black transition">
-          🚴 SÁBADO
-        </button>
-        <button type="button" onclick="selectCardioDay('sunday')" id="cardioTab-sunday"
-          class="cardio-day-tab rounded-2xl px-4 py-3 font-black transition">
-          🌄 DOMINGO
-        </button>
-      </div>
+      <div id="cardioTabs" class="flex gap-2 mb-4 overflow-x-auto no-scrollbar"></div>
 
-      <!-- Día seleccionado -->
-      <div id="cardioDayPanel" class="bg-white rounded-3xl border border-slate-200 shadow-soft overflow-hidden">
+      <div id="cardioDayPanelWrap" class="bg-white dark:bg-slate-900 dark:border-slate-800 rounded-3xl border border-slate-200 shadow-soft overflow-hidden">
         <div class="p-4 sm:p-5">
           <div class="flex items-center justify-between gap-3 mb-4">
             <div>
               <div id="cardioSelectedDay" class="text-xl font-black"></div>
               <div id="cardioSelectedDate" class="text-xs text-slate-400 mt-1"></div>
             </div>
-            <label class="flex items-center gap-2 bg-emerald-50 text-emerald-800 rounded-2xl px-3 py-2 font-black text-sm">
-              <input id="cardioDone" type="checkbox" onchange="saveSelectedCardio('done', this.checked)"
-                class="w-6 h-6 accent-emerald-600">
+            <label class="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-2xl px-3 py-2 font-black text-sm">
+              <input id="cardioDone" type="checkbox" class="w-6 h-6 accent-emerald-600">
               Hecho
             </label>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label class="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1">Actividad</label>
-              <select id="cardioActivity" onchange="saveSelectedCardio('activity', this.value)"
-                class="w-full h-14 rounded-2xl border border-slate-300 bg-white px-4 font-black text-base outline-none focus:ring-2 focus:ring-violet-500">
-              </select>
+              <label class="block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Actividad</label>
+              <select id="cardioActivity" class="w-full h-14 rounded-2xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 bg-white px-4 font-black text-base outline-none focus:ring-2 focus:ring-violet-500"></select>
             </div>
-
             <div>
-              <label class="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1">Distancia (km)</label>
+              <label class="block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Distancia (km)</label>
               <input id="cardioDistance" type="number" inputmode="decimal" min="0" step="0.01"
-                onchange="saveSelectedCardio('distance', this.value)"
-                class="w-full h-14 rounded-2xl border border-slate-300 px-4 text-center font-black text-lg outline-none focus:ring-2 focus:ring-violet-500"
-                placeholder="0,00">
+                class="w-full h-14 rounded-2xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 px-4 text-center font-black text-lg outline-none focus:ring-2 focus:ring-violet-500" placeholder="0,00">
             </div>
-
             <div>
-              <label class="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1">Tiempo medio</label>
+              <label class="block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Tiempo medio</label>
               <input id="cardioAvgTime" type="text" inputmode="decimal"
-                onchange="saveSelectedCardio('avgTime', this.value)"
-                class="w-full h-14 rounded-2xl border border-slate-300 px-4 text-center font-black text-lg outline-none focus:ring-2 focus:ring-violet-500"
-                placeholder="Ej. 6:10">
+                class="w-full h-14 rounded-2xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 px-4 text-center font-black text-lg outline-none focus:ring-2 focus:ring-violet-500" placeholder="Ej. 6:10">
             </div>
           </div>
 
           <div class="mt-3">
-            <label class="block text-xs font-black uppercase tracking-wide text-slate-500 mb-1">Notas</label>
+            <label class="block text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Notas</label>
             <input id="cardioNotes" type="text"
-              onchange="saveSelectedCardio('notes', this.value)"
-              class="w-full h-14 rounded-2xl border border-slate-300 px-4 font-medium outline-none focus:ring-2 focus:ring-violet-500"
-              placeholder="Opcional">
+              class="w-full h-14 rounded-2xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 px-4 font-medium outline-none focus:ring-2 focus:ring-violet-500" placeholder="Opcional">
           </div>
 
           <div class="mt-4 flex items-center justify-between gap-3">
             <div id="cardioSaveStatus" class="text-xs font-bold text-slate-400">Los datos se guardan automáticamente.</div>
-            <button type="button" onclick="saveSelectedCardio('done', true)"
-              class="rounded-2xl bg-emerald-600 text-white px-5 py-3 font-black active:scale-95 transition">
-              ✅ Guardar cardio
-            </button>
+            <button id="cardioSaveBtn" class="rounded-2xl bg-emerald-600 text-white px-5 py-3 font-black active:scale-95 transition">✅ Guardar cardio</button>
           </div>
         </div>
       </div>
 
-      <div class="mt-3 bg-violet-50 border border-violet-200 rounded-2xl p-4">
-        <div class="font-black text-violet-900">📈 Evolución del cardio</div>
-        <div id="cardioEvolution" class="mt-2 text-sm text-violet-900"></div>
+      <div class="mt-3 bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-900 rounded-2xl p-4">
+        <div class="font-black text-violet-900 dark:text-violet-200">📈 Evolución del cardio</div>
+        <div id="cardioEvolution" class="mt-2 text-sm text-violet-900 dark:text-violet-200"></div>
       </div>
+    </section>
+
+    <!-- EVOLUCIÓN DE FUERZA -->
+    <section class="mt-6 bg-white dark:bg-slate-900 dark:border-slate-800 rounded-3xl border border-slate-200 shadow-soft p-4 sm:p-5">
+      <div class="text-[11px] uppercase tracking-[.18em] font-black text-slate-500 dark:text-slate-400">📈 Evolución</div>
+      <h2 class="text-xl sm:text-2xl font-black mt-1">Progreso de fuerza por ejercicio</h2>
+      <select id="strengthEvoSelect" class="mt-3 h-12 w-full border border-slate-300 dark:border-slate-700 dark:bg-slate-900 rounded-2xl px-3"></select>
+      <div class="h-64 mt-4 relative">
+        <canvas id="strengthChart"></canvas>
+        <div id="strengthChartFallback" class="hidden h-full flex items-center justify-center text-sm text-slate-400 text-center px-4">No se pudo cargar el gráfico (sin conexión). La tabla de abajo sigue disponible.</div>
+      </div>
+      <div id="strengthEvoTable" class="mt-3 overflow-x-auto"></div>
     </section>
 
     <!-- ACCIONES -->
     <section class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-      <button onclick="exportExcel()" class="primary-btn rounded-2xl bg-emerald-600 active:bg-emerald-700 text-white font-black shadow-sm">📊 Exportar Excel</button>
-      <button onclick="exportBackup()" class="primary-btn rounded-2xl bg-sky-600 active:bg-sky-700 text-white font-black shadow-sm">💾 Copia de seguridad</button>
-      <label class="primary-btn rounded-2xl bg-sky-100 active:bg-sky-200 text-sky-800 border border-sky-200 font-black flex items-center justify-center cursor-pointer">
+      <button id="btnExportExcel" class="primary-btn rounded-2xl bg-emerald-600 active:bg-emerald-700 text-white font-black shadow-sm">📊 Exportar Excel</button>
+      <button id="btnExportBackup" class="primary-btn rounded-2xl bg-sky-600 active:bg-sky-700 text-white font-black shadow-sm">💾 Copia de seguridad</button>
+      <label class="primary-btn rounded-2xl bg-sky-100 dark:bg-sky-950 active:bg-sky-200 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-900 font-black flex items-center justify-center cursor-pointer">
         📤 Restaurar copia
-        <input type="file" accept=".json,application/json" class="hidden" onchange="importBackup(event)">
+        <input id="restoreInput" type="file" accept=".json,application/json" class="hidden">
       </label>
-      <button onclick="printPDF()"
-        class="primary-btn rounded-2xl bg-indigo-600 active:bg-indigo-700 text-white font-black shadow-sm">
-        🖨️ PDF horizontal
-      </button>
-      <button onclick="resetRecords()"
-        class="primary-btn rounded-2xl bg-white active:bg-red-50 text-red-600 border border-red-200 font-black">
-        🗑️ Borrar registros
-      </button>
+      <button id="btnPrintPdf" class="primary-btn rounded-2xl bg-indigo-600 active:bg-indigo-700 text-white font-black shadow-sm">🖨️ PDF horizontal</button>
+      <button id="btnResetRecords" class="primary-btn rounded-2xl bg-white dark:bg-slate-900 active:bg-red-50 text-red-600 border border-red-200 dark:border-red-900 font-black">🗑️ Borrar registros</button>
     </section>
 
-    <div class="text-center text-[11px] text-slate-500 mt-5 mb-8">
+    <div class="text-center text-[11px] text-slate-500 dark:text-slate-500 mt-5 mb-8">
       💾 Guardado automático en este dispositivo.
     </div>
   </main>
 
   <!-- BOTÓN FIJO: SIGUIENTE EJERCICIO -->
-  <div id="nextExerciseBar"
-    class="mobile-only fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 safe-bottom shadow-[0_-8px_25px_rgba(15,23,42,.08)]">
+  <div id="nextExerciseBar" class="mobile-only fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 safe-bottom shadow-[0_-8px_25px_rgba(15,23,42,.08)]">
     <div class="px-3 pt-2">
-      <button onclick="saveAndNext()"
-        class="w-full primary-btn rounded-2xl bg-violet-600 active:bg-violet-700 text-white font-black shadow-lg">
-        ✅ Guardar y siguiente ejercicio
-      </button>
+      <button id="saveAndNextBtn" class="w-full primary-btn rounded-2xl bg-violet-600 active:bg-violet-700 text-white font-black shadow-lg">✅ Guardar y siguiente ejercicio</button>
     </div>
   </div>
 
@@ -331,61 +260,68 @@
 
 <!-- MODAL INICIAL -->
 <div id="setupModal" class="fixed inset-0 z-[70] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-  <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6">
+  <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl p-6">
     <div class="text-center">
       <div class="text-5xl">🏋️</div>
-      <h2 class="text-2xl font-black mt-2">Tu plan de 12 semanas</h2>
-      <p class="text-sm text-slate-500 mt-1">Vamos a configurar tu registro.</p>
+      <h2 class="text-2xl font-black mt-2">Tu plan de entrenamiento</h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Vamos a configurar tu registro. Podrás editar el plan (días, ejercicios y duración) cuando quieras desde el botón 🛠️.</p>
     </div>
-
-    <form onsubmit="saveInitialProfile(event)" class="mt-6 space-y-4">
+    <form id="setupForm" class="mt-6 space-y-4">
       <div>
         <label class="text-sm font-black">Nombre y apellido</label>
         <input id="initialName" required autocomplete="name"
-          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 px-4 outline-none focus:ring-2 focus:ring-violet-500"
-          placeholder="Ej.: Daniel Crespo">
+          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 px-4 outline-none focus:ring-2 focus:ring-violet-500" placeholder="Ej.: Daniel Crespo">
       </div>
-
       <div>
         <label class="text-sm font-black">Fecha de inicio</label>
         <input id="initialDate" required type="date"
-          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 px-4 outline-none focus:ring-2 focus:ring-violet-500">
+          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 px-4 outline-none focus:ring-2 focus:ring-violet-500">
       </div>
-
-      <button class="w-full h-14 rounded-2xl bg-violet-600 active:bg-violet-700 text-white font-black text-base">
-        🚀 Empezar
-      </button>
+      <button class="w-full h-14 rounded-2xl bg-violet-600 active:bg-violet-700 text-white font-black text-base">🚀 Empezar</button>
     </form>
   </div>
 </div>
 
 <!-- MODAL PERFIL -->
 <div id="profileModal" class="fixed inset-0 z-[70] bg-slate-950/75 backdrop-blur-sm hidden items-center justify-center p-4">
-  <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6">
+  <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl p-6">
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-black">⚙️ Mi perfil</h2>
-      <button onclick="closeProfile()" class="touch-btn text-3xl text-slate-400">×</button>
+      <button id="closeProfileBtn" class="touch-btn text-3xl text-slate-400">×</button>
     </div>
-
-    <form onsubmit="saveProfile(event)" class="mt-5 space-y-4">
+    <form id="profileForm" class="mt-5 space-y-4">
       <div>
         <label class="text-sm font-black">Nombre y apellido</label>
-        <input id="editName" required
-          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 px-4 outline-none focus:ring-2 focus:ring-violet-500">
+        <input id="editName" required class="mt-1 w-full h-14 rounded-2xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 px-4 outline-none focus:ring-2 focus:ring-violet-500">
       </div>
-
       <div>
         <label class="text-sm font-black">Fecha de inicio</label>
-        <input id="editDate" required type="date"
-          class="mt-1 w-full h-14 rounded-2xl border border-slate-300 px-4 outline-none focus:ring-2 focus:ring-violet-500">
+        <input id="editDate" required type="date" class="mt-1 w-full h-14 rounded-2xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 px-4 outline-none focus:ring-2 focus:ring-violet-500">
       </div>
-
+      <button type="button" id="openPlanEditorFromProfile" class="w-full h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black text-sm">🛠️ Editar plan de entrenamiento →</button>
       <div class="grid grid-cols-2 gap-2">
-        <button type="button" onclick="closeProfile()"
-          class="h-14 rounded-2xl bg-slate-100 font-black">Cancelar</button>
+        <button type="button" id="cancelProfileBtn" class="h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black">Cancelar</button>
         <button class="h-14 rounded-2xl bg-violet-600 text-white font-black">Guardar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- MODAL EDITOR DE PLAN -->
+<div id="planModal" class="fixed inset-0 z-[75] bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-2 sm:p-4">
+  <div class="bg-white dark:bg-slate-900 w-full max-w-2xl max-h-[92vh] rounded-3xl shadow-2xl flex flex-col">
+    <div class="flex items-center justify-between p-5 pb-3 border-b border-slate-200 dark:border-slate-800">
+      <div>
+        <h2 class="text-xl font-black">🛠️ Editar plan de entrenamiento</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Cambiar u ocultar un día o ejercicio no borra tus registros ya guardados, solo deja de mostrarlos.</p>
+      </div>
+      <button id="closePlanEditorBtn" class="touch-btn text-3xl text-slate-400 shrink-0">×</button>
+    </div>
+    <div id="planEditorBody" class="p-5 overflow-y-auto space-y-6"></div>
+    <div class="p-5 pt-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-2">
+      <button id="cancelPlanEditorBtn" class="h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black">Cancelar</button>
+      <button id="savePlanEditorBtn" class="h-14 rounded-2xl bg-violet-600 text-white font-black">💾 Guardar plan</button>
+    </div>
   </div>
 </div>
 
@@ -394,21 +330,27 @@
 
 <script>
 /* ==========================================================
-   🏋️ MI ENTRENAMIENTO · VERSIÓN OPTIMIZADA PARA IPHONE
-   - Un único archivo HTML
-   - Tailwind por CDN
-   - Datos en localStorage
-   - 12 semanas
-   - Fuerza A/B/C según el plan suministrado
+   🏋️ MI ENTRENAMIENTO · PLAN EDITABLE (v3)
+   - Un único archivo HTML, Tailwind por CDN
+   - Datos en localStorage, plan configurable desde la UI
+   - Migración automática desde la versión anterior (v2, plan fijo)
    ========================================================== */
+'use strict';
 
-const STORAGE_KEY = 'gym12weeks_mobile_v2';
+const STORAGE_KEY = 'gym12weeks_mobile_v3';
+const LEGACY_KEY = 'gym12weeks_mobile_v2';
 
-const plan = {
-  monday: {
-    name: 'Fuerza A',
-    fullName: 'Lunes · Fuerza A',
-    emoji: '💪',
+const $ = (id) => document.getElementById(id);
+const esc = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+
+const WEEKDAY_ORDER = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+const WEEKDAY_LABELS = { monday:'Lunes', tuesday:'Martes', wednesday:'Miércoles', thursday:'Jueves', friday:'Viernes', saturday:'Sábado', sunday:'Domingo' };
+
+/* -------------------- PLAN DE FÁBRICA (usado para instalaciones nuevas y para migrar v2) -------------------- */
+const FACTORY_PLAN = {
+  monday: { name: 'Fuerza A', emoji: '💪',
+    note: 'Core: seguir rutina indicada. Empezar siempre por el lado izquierdo en ejercicios unilaterales.',
     exercises: [
       { name: 'Prensa inclinada', reps: '3×8-10', search: 'prensa inclinada gimnasio técnica' },
       { name: 'Press banca mancuernas', reps: '3×8-10', search: 'press banca mancuernas técnica' },
@@ -417,13 +359,9 @@ const plan = {
       { name: 'Press hombro neutro', reps: '3×8-10', search: 'press hombro neutro mancuernas técnica' },
       { name: 'Face Pull', reps: '3×15', search: 'face pull técnica' },
       { name: 'Scaption', reps: '2-3×12-15', search: 'scaption ejercicio técnica' }
-    ],
-    note: 'Core: seguir rutina indicada. Empezar siempre por el lado izquierdo en ejercicios unilaterales.'
-  },
-  wednesday: {
-    name: 'Fuerza B',
-    fullName: 'Miércoles · Fuerza B',
-    emoji: '🔥',
+    ] },
+  wednesday: { name: 'Fuerza B', emoji: '🔥',
+    note: 'Core: seguir rutina indicada. Empezar siempre por el lado izquierdo en ejercicios unilaterales.',
     exercises: [
       { name: 'Zancadas', reps: '3×8-10', search: 'zancadas ejercicio técnica gimnasio' },
       { name: 'Jalón unilateral', reps: '3×8-10', search: 'jalón unilateral polea técnica' },
@@ -431,13 +369,9 @@ const plan = {
       { name: 'Hip Thrust', reps: '3×8-10', search: 'hip thrust técnica gimnasio' },
       { name: 'Remo polea unilateral', reps: '3×8-10', search: 'remo polea unilateral técnica' },
       { name: 'Reverse Fly', reps: '2-3×12-15', search: 'reverse fly técnica gimnasio' }
-    ],
-    note: 'Core: seguir rutina indicada. Empezar siempre por el lado izquierdo en ejercicios unilaterales.'
-  },
-  friday: {
-    name: 'Fuerza C',
-    fullName: 'Viernes · Fuerza C',
-    emoji: '⚡',
+    ] },
+  friday: { name: 'Fuerza C', emoji: '⚡',
+    note: 'Core: seguir rutina indicada. Empezar siempre por el lado izquierdo en ejercicios unilaterales.',
     exercises: [
       { name: 'Sentadilla Goblet/Prensa', reps: '3×8-10', search: 'sentadilla goblet técnica' },
       { name: 'Peso muerto', reps: '3×8-10', search: 'peso muerto convencional técnica' },
@@ -445,987 +379,1004 @@ const plan = {
       { name: 'Máquina pecho', reps: '3×8-10', search: 'máquina pecho press técnica gimnasio' },
       { name: 'Curl femoral', reps: '3×8-10', search: 'curl femoral máquina técnica' },
       { name: 'Elevaciones laterales', reps: '2-3×12-15', search: 'elevaciones laterales técnica mancuernas' }
-    ],
-    note: 'Core: seguir rutina indicada. Empezar siempre por el lado izquierdo en ejercicios unilaterales.'
-  }
+    ] }
 };
+const FACTORY_CARDIO_DAYS = [
+  { weekday: 'tuesday', emoji: '🔥' },
+  { weekday: 'thursday', emoji: '⚡' },
+  { weekday: 'saturday', emoji: '🚴' },
+  { weekday: 'sunday', emoji: '🌄' }
+];
+const FACTORY_CARDIO_ACTIVITIES = ['Correr','Caminar','MTB','Bici Carretera','Otro'];
 
-const dayLabels = {
-  monday: 'Lunes',
-  wednesday: 'Miércoles',
-  friday: 'Viernes'
-};
+function buildFactoryConfig(){
+  return {
+    weeks: 12,
+    strengthDays: Object.keys(FACTORY_PLAN).map(weekday => {
+      const src = FACTORY_PLAN[weekday];
+      return { id: uid(), weekday, emoji: src.emoji, name: src.name, note: src.note,
+        blocks: [{ id: uid(), fromWeek: 1, exercises: src.exercises.map(ex => ({ id: uid(), name: ex.name, reps: ex.reps, search: ex.search })) }] };
+    }),
+    cardioDays: FACTORY_CARDIO_DAYS.map(d => ({ id: uid(), weekday: d.weekday, emoji: d.emoji })),
+    cardioActivities: FACTORY_CARDIO_ACTIVITIES.slice()
+  };
+}
+
+/* -------------------- ESTADO: CARGA / MIGRACIÓN / GUARDADO -------------------- */
+function defaultState(){
+  return { profile: { name: '', startDate: '' }, config: buildFactoryConfig(), records: {} };
+}
+
+function normalizeState(raw){
+  const st = defaultState();
+  if (raw.profile) { st.profile.name = raw.profile.name || ''; st.profile.startDate = raw.profile.startDate || ''; }
+  if (raw.config && Array.isArray(raw.config.strengthDays) && Array.isArray(raw.config.cardioDays)) {
+    st.config = {
+      weeks: Math.max(1, Math.min(104, Number(raw.config.weeks) || 12)),
+      strengthDays: raw.config.strengthDays.map(d => {
+        const normEx = ex => ({ id: ex.id || uid(), name: ex.name || '', reps: ex.reps || '', search: ex.search || '' });
+        let blocks;
+        if (Array.isArray(d.blocks) && d.blocks.length) {
+          blocks = d.blocks
+            .map(b => ({ id: b.id || uid(), fromWeek: Math.max(1, Math.round(Number(b.fromWeek)) || 1), exercises: Array.isArray(b.exercises) ? b.exercises.map(normEx) : [] }))
+            .sort((a, b) => a.fromWeek - b.fromWeek);
+        } else if (Array.isArray(d.exercises)) {
+          blocks = [{ id: uid(), fromWeek: 1, exercises: d.exercises.map(normEx) }];
+        } else {
+          blocks = [{ id: uid(), fromWeek: 1, exercises: [] }];
+        }
+        if (blocks[0].fromWeek !== 1) blocks[0].fromWeek = 1;
+        return {
+          id: d.id || uid(), weekday: WEEKDAY_ORDER.includes(d.weekday) ? d.weekday : 'monday',
+          emoji: d.emoji || '💪', name: d.name || 'Fuerza', note: d.note || '',
+          blocks
+        };
+      }),
+      cardioDays: raw.config.cardioDays.map(d => ({ id: d.id || uid(), weekday: WEEKDAY_ORDER.includes(d.weekday) ? d.weekday : 'tuesday', emoji: d.emoji || '❤️' })),
+      cardioActivities: Array.isArray(raw.config.cardioActivities) && raw.config.cardioActivities.length ? raw.config.cardioActivities.slice() : FACTORY_CARDIO_ACTIVITIES.slice()
+    };
+  }
+  if (raw.records && typeof raw.records === 'object') st.records = raw.records;
+  return st;
+}
+
+function migrateLegacy(oldState){
+  const config = buildFactoryConfig();
+  const dayMap = {}; // legacy weekday -> { newDayId, exIds: [] }
+  config.strengthDays.forEach(d => { dayMap[d.weekday] = { newDayId: d.id, exIds: d.blocks[0].exercises.map(e => e.id) }; });
+  const cardioMap = {}; // legacy weekday -> new cardio day id
+  config.cardioDays.forEach(d => { cardioMap[d.weekday] = d.id; });
+
+  const records = {};
+  Object.entries(oldState.records || {}).forEach(([k, v]) => {
+    const parts = k.split('|');
+    if (parts[0] === 'cardio') {
+      const [, week, day] = parts;
+      const newDayId = cardioMap[day];
+      if (newDayId) records['c|' + week + '|' + newDayId] = v;
+    } else {
+      const [week, day, idx] = parts;
+      const map = dayMap[day];
+      if (map && map.exIds[+idx] != null) records['s|' + week + '|' + map.newDayId + '|' + map.exIds[+idx]] = v;
+    }
+  });
+
+  return {
+    profile: { name: (oldState.profile && oldState.profile.name) || '', startDate: (oldState.profile && oldState.profile.startDate) || '' },
+    config, records
+  };
+}
+
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) { const parsed = JSON.parse(raw); if (parsed && typeof parsed === 'object') return normalizeState(parsed); }
+  } catch (e) {
+    console.error('El estado guardado parecía dañado, se conserva una copia y se reinicia.', e);
+    try { const broken = localStorage.getItem(STORAGE_KEY); if (broken) localStorage.setItem(STORAGE_KEY + '_corrupto_' + Date.now(), broken); } catch (e2) {}
+  }
+  try {
+    const legacyRaw = localStorage.getItem(LEGACY_KEY);
+    if (legacyRaw) {
+      const legacy = JSON.parse(legacyRaw);
+      if (legacy && legacy.records) {
+        const migrated = normalizeState(migrateLegacy(legacy));
+        saveState(migrated);
+        return migrated;
+      }
+    }
+  } catch (e) { console.error('No se pudo migrar la copia anterior (v2).', e); }
+  const fresh = defaultState();
+  saveState(fresh);
+  return fresh;
+}
+
+function saveState(st){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(st || state)); }
+  catch (e) { alert('No se pudo guardar: el almacenamiento del navegador está lleno o bloqueado.'); }
+}
+const save = () => saveState(state);
 
 let state = loadState();
 let currentWeek = 1;
-let currentDay = 'monday';
+let currentDay = state.config.strengthDays[0] ? state.config.strengthDays[0].id : null;
+let currentCardioDay = state.config.cardioDays[0] ? state.config.cardioDays[0].id : null;
 let currentExercise = 0;
+let strengthChart = null;
+let planDraft = null;
 
-/* -------------------- DATOS -------------------- */
+/* -------------------- ACCESO AL PLAN -------------------- */
+function getStrengthDay(dayId){ return state.config.strengthDays.find(d => d.id === dayId) || null; }
+function getCardioDay(dayId){ return state.config.cardioDays.find(d => d.id === dayId) || null; }
 
-function defaultState() {
+/* -------------------- BLOQUES DE SEMANAS (por día de fuerza) -------------------- */
+const BLOCK_SIZE_WEEKS = 4;
+function getActiveBlock(day, week){
+  if (!day || !Array.isArray(day.blocks) || !day.blocks.length) return null;
+  let active = day.blocks[0];
+  for (const b of day.blocks) { if (b.fromWeek <= week) active = b; else break; }
+  return active;
+}
+function getDayExercises(day, week){
+  const block = getActiveBlock(day, week);
+  return block ? block.exercises : [];
+}
+function blockToWeek(day, blockIndex, weeksTotal){
+  const next = day.blocks[blockIndex + 1];
+  return next ? next.fromWeek - 1 : weeksTotal;
+}
+
+/* -------------------- REGISTROS -------------------- */
+function key(week, dayId, exId){ return 's|' + week + '|' + dayId + '|' + exId; }
+function cardioKey(week, dayId){ return 'c|' + week + '|' + dayId; }
+
+function getRecord(week, dayId, exId){
+  return state.records[key(week, dayId, exId)] || { sets: '', weight: '', notes: '', done: false };
+}
+function updateRecord(week, dayId, exId, changes){
+  const old = getRecord(week, dayId, exId);
+  state.records[key(week, dayId, exId)] = Object.assign({}, old, changes);
+  saveState(); updateAllStats();
+}
+function getCardioRecord(week, dayId){
+  const saved = state.records[cardioKey(week, dayId)];
   return {
-    profile: { name: '', startDate: '' },
-    records: {}
-  };
-}
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : defaultState();
-  } catch {
-    return defaultState();
-  }
-}
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function key(week, day, index) {
-  return `${week}|${day}|${index}`;
-}
-
-function getRecord(week, day, index) {
-  return state.records[key(week, day, index)] || {
-    sets: '',
-    weight: '',
-    done: false
-  };
-}
-
-function updateRecord(week, day, index, changes) {
-  const old = getRecord(week, day, index);
-  state.records[key(week, day, index)] = { ...old, ...changes };
-  saveState();
-  updateAllStats();
-}
-
-/* -------------------- FECHAS -------------------- */
-
-function localISODate(date = new Date()) {
-  const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return d.toISOString().slice(0, 10);
-}
-
-function formatDate(value) {
-  if (!value) return '';
-  const d = new Date(value + 'T12:00:00');
-  return d.toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-}
-
-function weekStartDate(week) {
-  if (!state.profile.startDate) return '';
-  const d = new Date(state.profile.startDate + 'T12:00:00');
-  d.setDate(d.getDate() + (week - 1) * 7);
-  return localISODate(d);
-}
-
-/* -------------------- UTILIDADES -------------------- */
-
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  }[c]));
-}
-
-function isMobile() {
-  return window.matchMedia('(max-width: 767px)').matches;
-}
-
-function getPreviousRecord(day, index) {
-  if (currentWeek <= 1) return null;
-  return getRecord(currentWeek - 1, day, index);
-}
-
-function weekProgress(week) {
-  let total = 0;
-  let done = 0;
-
-  Object.keys(plan).forEach(day => {
-    plan[day].exercises.forEach((_, i) => {
-      total++;
-      if (getRecord(week, day, i).done) done++;
-    });
-  });
-
-  return total ? Math.round(done / total * 100) : 0;
-}
-
-function dayProgress(week, day) {
-  const total = plan[day].exercises.length;
-  const done = plan[day].exercises.filter((_, i) =>
-    getRecord(week, day, i).done
-  ).length;
-
-  return {
-    total,
-    done,
-    percent: total ? Math.round(done / total * 100) : 0
-  };
-}
-
-/* -------------------- CABECERA / SEMANAS -------------------- */
-
-function renderProfile() {
-  const el = document.getElementById('profileSubtitle');
-
-  if (state.profile.name) {
-    el.textContent =
-      `${state.profile.name} · Inicio ${formatDate(state.profile.startDate)}`;
-  } else {
-    el.textContent = 'Plan de fuerza · 12 semanas';
-  }
-}
-
-function renderWeekNavigation() {
-  const progress = weekProgress(currentWeek);
-
-  document.getElementById('weekTitle').textContent =
-    `${currentWeek} / 12`;
-
-  document.getElementById('weekDate').textContent =
-    state.profile.startDate
-      ? `Inicio: ${formatDate(weekStartDate(currentWeek))}`
-      : '';
-
-  document.getElementById('weekProgressBar').style.width = `${progress}%`;
-
-  const dot = document.getElementById('weekStatusDot');
-  dot.className =
-    `week-dot ${
-      progress === 100 ? 'bg-emerald-500' :
-      progress > 0 ? 'bg-amber-400' :
-      'bg-slate-300'
-    }`;
-
-  /* PC */
-  const desktop = document.getElementById('desktopWeeks');
-  desktop.innerHTML = '';
-
-  for (let w = 1; w <= 12; w++) {
-    const p = weekProgress(w);
-    const active = w === currentWeek;
-
-    const button = document.createElement('button');
-
-    button.className =
-      `rounded-xl py-2 text-xs font-black transition ${
-        active
-          ? 'bg-violet-600 text-white'
-          : p === 100
-            ? 'bg-emerald-100 text-emerald-800'
-            : p > 0
-              ? 'bg-amber-100 text-amber-800'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-      }`;
-
-    button.textContent = `S${w}`;
-    button.onclick = () => {
-      currentWeek = w;
-      currentExercise = 0;
-      renderAll();
-    };
-
-    desktop.appendChild(button);
-  }
-
-  /* Móvil */
-  const select = document.getElementById('weekSelect');
-  select.innerHTML = '';
-
-  for (let w = 1; w <= 12; w++) {
-    const option = document.createElement('option');
-    option.value = w;
-    option.textContent =
-      `Semana ${w}${weekProgress(w) === 100 ? ' · ✅' : ''}`;
-    option.selected = w === currentWeek;
-    select.appendChild(option);
-  }
-}
-
-function selectWeekFromSelect(value) {
-  currentWeek = Number(value);
-  currentExercise = 0;
-  renderAll();
-}
-
-function jumpWeek(amount) {
-  currentWeek = Math.max(1, Math.min(12, currentWeek + amount));
-  currentExercise = 0;
-  renderAll();
-}
-
-function changeWeek(delta) {
-  currentWeek = Math.max(1, Math.min(12, currentWeek + delta));
-  currentExercise = 0;
-  renderAll();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-/* -------------------- DÍAS -------------------- */
-
-function renderDayTabs() {
-  document.querySelectorAll('.day-tab').forEach(button => {
-    const active = button.dataset.day === currentDay;
-
-    button.className =
-      `day-tab rounded-xl py-3 text-xs sm:text-sm font-black transition ${
-        active
-          ? 'bg-slate-950 text-white shadow-sm'
-          : 'bg-transparent text-slate-600'
-      }`;
-  });
-}
-
-function selectDay(day) {
-  currentDay = day;
-  currentExercise = 0;
-  renderAll();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-/* -------------------- TARJETAS DE EJERCICIO -------------------- */
-
-function exerciseCard(exercise, index) {
-  const r = getRecord(currentWeek, currentDay, index);
-  const previous = getPreviousRecord(currentDay, index);
-
-  const videoUrl =
-    `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.search)}`;
-
-  const previousText =
-    previous && previous.weight
-      ? `Última vez: ${escapeHtml(previous.weight)} kg`
-      : 'Sin registro anterior';
-
-  const previousWeight =
-    previous && Number(previous.weight)
-      ? Number(previous.weight)
-      : null;
-
-  const currentWeight =
-    r.weight !== '' ? Number(r.weight) : null;
-
-  let trend = '';
-  if (previousWeight !== null && currentWeight !== null) {
-    if (currentWeight > previousWeight) {
-      trend = `<span class="text-emerald-600 font-black">⬆️ +${(currentWeight - previousWeight).toFixed(1).replace('.0','')} kg</span>`;
-    } else if (currentWeight < previousWeight) {
-      trend = `<span class="text-orange-600 font-black">⬇️ ${(currentWeight - previousWeight).toFixed(1).replace('.0','')} kg</span>`;
-    } else {
-      trend = `<span class="text-slate-500 font-black">➡️ Igual</span>`;
-    }
-  }
-
-  const done = r.done;
-
-  return `
-    <article id="exercise-${index}"
-      class="exercise-card bg-white rounded-3xl border ${
-        done ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-slate-200'
-      } shadow-soft overflow-hidden">
-
-      <div class="p-4 sm:p-5">
-
-        <!-- Título -->
-        <div class="flex items-start gap-3">
-          <div class="w-9 h-9 shrink-0 rounded-xl ${
-            done ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700'
-          } flex items-center justify-center font-black">
-            ${done ? '✓' : index + 1}
-          </div>
-
-          <div class="min-w-0 flex-1">
-            <div class="flex items-start justify-between gap-2">
-              <div>
-                <a href="${videoUrl}" target="_blank" rel="noopener noreferrer"
-                  class="text-[17px] sm:text-lg font-black text-slate-900 underline decoration-violet-300 underline-offset-4">
-                  ${escapeHtml(exercise.name)} 🎥
-                </a>
-                <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                  <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">
-                    ${escapeHtml(exercise.reps)}
-                  </span>
-                  <span class="text-[11px] text-slate-400">
-                    ${previousText}
-                  </span>
-                </div>
-              </div>
-
-              <label class="shrink-0 flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  ${done ? 'checked' : ''}
-                  onchange="toggleDone(${index}, this.checked)"
-                  class="w-6 h-6 accent-emerald-600">
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- CONTROLES -->
-        <div class="grid grid-cols-2 gap-2 mt-4">
-
-          <div>
-            <div class="text-[11px] font-black uppercase tracking-wide text-slate-500 mb-1.5">
-              🔢 Series
-            </div>
-            <div class="flex h-14">
-              <button onclick="changeSets(${index}, -1)"
-                class="w-12 rounded-l-2xl bg-slate-100 active:bg-slate-200 text-xl font-black">−</button>
-
-              <input id="sets-${index}"
-                type="number"
-                inputmode="numeric"
-                min="0"
-                step="1"
-                value="${escapeHtml(r.sets)}"
-                placeholder="0"
-                onchange="saveInput(${index}, 'sets', this.value)"
-                class="min-w-0 flex-1 text-center bg-slate-50 border-y border-slate-200 text-xl font-black outline-none">
-
-              <button onclick="changeSets(${index}, 1)"
-                class="w-12 rounded-r-2xl bg-slate-100 active:bg-slate-200 text-xl font-black">+</button>
-            </div>
-          </div>
-
-          <div>
-            <div class="text-[11px] font-black uppercase tracking-wide text-slate-500 mb-1.5">
-              🏋️ Peso máximo
-            </div>
-            <div class="flex h-14">
-              <button onclick="changeWeight(${index}, -0.5)"
-                class="w-12 rounded-l-2xl bg-slate-100 active:bg-slate-200 text-xl font-black">−</button>
-
-              <input id="weight-${index}"
-                type="number"
-                inputmode="decimal"
-                min="0"
-                step="0.5"
-                value="${escapeHtml(r.weight)}"
-                placeholder="kg"
-                onchange="saveInput(${index}, 'weight', this.value)"
-                class="min-w-0 flex-1 text-center bg-slate-50 border-y border-slate-200 text-xl font-black outline-none">
-
-              <button onclick="changeWeight(${index}, 0.5)"
-                class="w-12 rounded-r-2xl bg-slate-100 active:bg-slate-200 text-xl font-black">+</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- PROGRESO -->
-        ${trend ? `
-          <div class="mt-3 text-center text-xs bg-slate-50 rounded-xl py-2">
-            ${trend}
-          </div>
-        ` : ''}
-
-        <!-- BOTÓN HECHO -->
-        <button onclick="toggleDone(${index}, ${!done})"
-          class="mt-3 w-full h-12 rounded-2xl font-black text-sm ${
-            done
-              ? 'bg-emerald-100 text-emerald-800'
-              : 'bg-slate-100 active:bg-emerald-100 text-slate-700'
-          }">
-          ${done ? '✅ Ejercicio realizado' : '☐ Marcar como realizado'}
-        </button>
-      </div>
-    </article>
-  `;
-}
-
-/* -------------------- RENDER DEL DÍA -------------------- */
-
-function renderDay() {
-  const data = plan[currentDay];
-  const progress = dayProgress(currentWeek, currentDay);
-
-  const panel = document.getElementById('dayPanel');
-
-  panel.innerHTML = `
-    <div class="mb-3">
-      <div class="flex items-end justify-between gap-2">
-        <div>
-          <div class="text-[11px] uppercase tracking-[.18em] font-black text-slate-500">
-            ${data.emoji} ${escapeHtml(data.fullName)}
-          </div>
-          <h2 class="text-2xl sm:text-3xl font-black mt-1">
-            Semana ${currentWeek}
-          </h2>
-        </div>
-
-        <div class="desktop-only text-right">
-          <div class="text-xs text-slate-500">Completado</div>
-          <div class="text-2xl font-black">${progress.percent}%</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="space-y-3">
-      ${data.exercises.map((ex, i) => exerciseCard(ex, i)).join('')}
-    </div>
-
-    <div class="mt-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900">
-      📝 <strong>Nota:</strong> ${escapeHtml(data.note)}
-    </div>
-  `;
-
-  updateMobileDaySummary();
-}
-
-/* -------------------- EDICIÓN -------------------- */
-
-function saveInput(index, field, value) {
-  let clean = value;
-
-  if (field === 'sets') {
-    clean = value === '' ? '' : Math.max(0, Math.round(Number(value)));
-  }
-
-  if (field === 'weight') {
-    clean = value === '' ? '' : Math.max(0, Number(value));
-  }
-
-  updateRecord(currentWeek, currentDay, index, { [field]: clean });
-  renderDay();
-  focusCurrentExercise(index);
-}
-
-function changeSets(index, amount) {
-  const r = getRecord(currentWeek, currentDay, index);
-  const value = Math.max(0, (Number(r.sets) || 0) + amount);
-
-  updateRecord(currentWeek, currentDay, index, { sets: value });
-  renderDay();
-  renderCardio();
-  updateCardioSummary();
-}
-
-function changeWeight(index, amount) {
-  const r = getRecord(currentWeek, currentDay, index);
-  const value = Math.max(0, (Number(r.weight) || 0) + amount);
-
-  updateRecord(currentWeek, currentDay, index, {
-    weight: Number(value.toFixed(1))
-  });
-
-  renderDay();
-}
-
-function toggleDone(index, checked) {
-  updateRecord(currentWeek, currentDay, index, { done: checked });
-  currentExercise = index;
-  renderDay();
-
-  if (checked) {
-    toast('✅ Ejercicio guardado');
-  }
-}
-
-function saveAndNext() {
-  const index = currentExercise;
-  const r = getRecord(currentWeek, currentDay, index);
-
-  const setsInput = document.getElementById(`sets-${index}`);
-  const weightInput = document.getElementById(`weight-${index}`);
-
-  const sets = setsInput ? setsInput.value : r.sets;
-  const weight = weightInput ? weightInput.value : r.weight;
-
-  updateRecord(currentWeek, currentDay, index, {
-    sets,
-    weight,
-    done: true
-  });
-
-  if (currentExercise < plan[currentDay].exercises.length - 1) {
-    currentExercise++;
-    renderDay();
-
-    setTimeout(() => {
-      const next = document.getElementById(`exercise-${currentExercise}`);
-      if (next) next.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }, 50);
-
-    toast('➡️ Siguiente ejercicio');
-  } else {
-    toast('🎉 ¡Entrenamiento completado!');
-    renderDay();
-  }
-}
-
-function focusCurrentExercise(index) {
-  currentExercise = index;
-}
-
-/* -------------------- RESÚMENES -------------------- */
-
-function updateMobileDaySummary() {
-  const p = dayProgress(currentWeek, currentDay);
-
-  document.getElementById('mobileDayTitle').textContent =
-    `${plan[currentDay].emoji} ${plan[currentDay].name}`;
-
-  document.getElementById('mobileDayProgressText').textContent =
-    `${p.done} de ${p.total} ejercicios`;
-
-  document.getElementById('mobileDayPercent').textContent =
-    `${p.percent}%`;
-
-  document.getElementById('mobileDayProgressBar').style.width =
-    `${p.percent}%`;
-}
-
-function updateAllStats() {
-  renderWeekNavigation();
-  updateMobileDaySummary();
-}
-
-/* -------------------- PERFIL -------------------- */
-
-function saveInitialProfile(event) {
-  event.preventDefault();
-
-  state.profile.name =
-    document.getElementById('initialName').value.trim();
-
-  state.profile.startDate =
-    document.getElementById('initialDate').value;
-
-  saveState();
-
-  document.getElementById('setupModal').style.display = 'none';
-
-  renderAll();
-  toast('🚀 ¡Plan configurado!');
-}
-
-function openProfile() {
-  document.getElementById('editName').value =
-    state.profile.name || '';
-
-  document.getElementById('editDate').value =
-    state.profile.startDate || '';
-
-  const modal = document.getElementById('profileModal');
-  modal.classList.remove('hidden');
-  modal.classList.add('flex');
-}
-
-function closeProfile() {
-  const modal = document.getElementById('profileModal');
-  modal.classList.add('hidden');
-  modal.classList.remove('flex');
-}
-
-function saveProfile(event) {
-  event.preventDefault();
-
-  state.profile.name =
-    document.getElementById('editName').value.trim();
-
-  state.profile.startDate =
-    document.getElementById('editDate').value;
-
-  saveState();
-  closeProfile();
-  renderAll();
-  toast('✅ Perfil actualizado');
-}
-
-/* -------------------- TOAST -------------------- */
-
-function toast(message) {
-  const el = document.getElementById('toast');
-  el.querySelector('div').textContent = message;
-  el.classList.remove('hidden');
-
-  clearTimeout(window.toastTimer);
-  window.toastTimer = setTimeout(() => {
-    el.classList.add('hidden');
-  }, 1800);
-}
-
-
-/* -------------------- CARDIO -------------------- */
-const cardioDays = ['tuesday','thursday','saturday','sunday'];
-const cardioDayLabels = {
-  tuesday:'Martes',
-  thursday:'Jueves',
-  saturday:'Sábado',
-  sunday:'Domingo'
-};
-const cardioDayEmojis = {
-  tuesday:'🔥',
-  thursday:'⚡',
-  saturday:'🚴',
-  sunday:'🌄'
-};
-const cardioOptions = ['Correr','Caminar','MTB','Bici Carretera','Otro'];
-let currentCardioDay = 'tuesday';
-
-function cardioKey(week, day) {
-  return `cardio|${week}|${day}`;
-}
-
-function getCardioRecord(week, day) {
-  const saved = state.records[cardioKey(week, day)];
-  return {
-    activity: saved && cardioOptions.includes(saved.activity) ? saved.activity : 'Correr',
+    activity: saved && state.config.cardioActivities.includes(saved.activity) ? saved.activity : (state.config.cardioActivities[0] || ''),
     distance: saved && saved.distance !== undefined ? saved.distance : '',
     avgTime: saved && saved.avgTime !== undefined ? saved.avgTime : '',
     notes: saved && saved.notes !== undefined ? saved.notes : '',
     done: !!(saved && saved.done)
   };
 }
-
-function updateCardioRecord(week, day, changes) {
-  const old = getCardioRecord(week, day);
-  state.records[cardioKey(week, day)] = { ...old, ...changes };
+function updateCardioRecord(week, dayId, changes){
+  const old = getCardioRecord(week, dayId);
+  state.records[cardioKey(week, dayId)] = Object.assign({}, old, changes);
   saveState();
 }
 
-function selectCardioDay(day) {
-  if (!cardioDays.includes(day)) return;
-  currentCardioDay = day;
-  renderCardio();
+/* -------------------- FECHAS -------------------- */
+function localISODate(date){
+  date = date || new Date();
+  const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 10);
 }
-
-function weekDayDate(week, day) {
+function formatDate(value){
+  if (!value) return '';
+  const d = new Date(value + 'T12:00:00');
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function weekStartDate(week){
   if (!state.profile.startDate) return '';
-
-  // Cardio: la semana 1 comienza exactamente en la fecha de inicio del plan.
-  // Así, si el plan empieza un martes, ese primer martes conserva esa fecha.
+  const d = new Date(state.profile.startDate + 'T12:00:00');
+  d.setDate(d.getDate() + (week - 1) * 7);
+  return localISODate(d);
+}
+function dateForConfiguredDay(week, weekday){
+  if (!state.profile.startDate) return '';
   const start = new Date(state.profile.startDate + 'T12:00:00');
-  const offsets = { tuesday: 0, thursday: 2, saturday: 4, sunday: 5 };
+  const startIdx = (start.getDay() + 6) % 7; // lunes = 0
+  const targetIdx = WEEKDAY_ORDER.indexOf(weekday);
+  const offset = (targetIdx - startIdx + 7) % 7;
   const d = new Date(start);
-  d.setDate(d.getDate() + ((week - 1) * 7) + (offsets[day] || 0));
+  d.setDate(d.getDate() + (week - 1) * 7 + offset);
   return formatDate(localISODate(d));
 }
 
-function saveSelectedCardio(field, value) {
+/* -------------------- UTILIDADES -------------------- */
+function isMobile(){ return window.matchMedia('(max-width: 767px)').matches; }
+function getPreviousRecord(dayId, exId){ return currentWeek <= 1 ? null : getRecord(currentWeek - 1, dayId, exId); }
+
+function weekProgress(week){
+  let total = 0, done = 0;
+  state.config.strengthDays.forEach(day => getDayExercises(day, week).forEach(ex => { total++; if (getRecord(week, day.id, ex.id).done) done++; }));
+  return total ? Math.round(done / total * 100) : 0;
+}
+function dayProgress(week, dayId){
+  const day = getStrengthDay(dayId);
+  if (!day) return { total: 0, done: 0, percent: 0 };
+  const exercises = getDayExercises(day, week);
+  const total = exercises.length;
+  const done = exercises.filter(ex => getRecord(week, dayId, ex.id).done).length;
+  return { total, done, percent: total ? Math.round(done / total * 100) : 0 };
+}
+
+/* -------------------- CABECERA / SEMANAS -------------------- */
+function renderProfile(){
+  $('profileSubtitle').textContent = state.profile.name
+    ? state.profile.name + ' · Inicio ' + formatDate(state.profile.startDate)
+    : 'Plan de fuerza personalizable';
+}
+
+function renderWeekNavigation(){
+  const weeks = state.config.weeks;
+  const progress = weekProgress(currentWeek);
+  $('weekTitle').textContent = currentWeek + ' / ' + weeks;
+  $('weekDate').textContent = state.profile.startDate ? 'Inicio: ' + formatDate(weekStartDate(currentWeek)) : '';
+  $('weekProgressBar').style.width = progress + '%';
+  $('weekStatusDot').className = 'week-dot ' + (progress === 100 ? 'bg-emerald-500' : progress > 0 ? 'bg-amber-400' : 'bg-slate-300');
+
+  const desktop = $('desktopWeeks');
+  desktop.className = 'desktop-only grid gap-1.5 mt-3 grid-cols-' + Math.min(12, weeks) + (weeks > 12 ? ' grid-rows-2' : '');
+  desktop.innerHTML = '';
+  for (let w = 1; w <= weeks; w++) {
+    const p = weekProgress(w);
+    const active = w === currentWeek;
+    const btn = document.createElement('button');
+    btn.className = 'rounded-xl py-2 text-xs font-black transition ' + (active ? 'bg-violet-600 text-white' : p === 100 ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300' : p > 0 ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200');
+    btn.textContent = 'S' + w;
+    btn.onclick = () => { currentWeek = w; currentExercise = 0; renderAll(); };
+    desktop.appendChild(btn);
+  }
+
+  const select = $('weekSelect');
+  select.innerHTML = '';
+  for (let w = 1; w <= weeks; w++) {
+    const option = document.createElement('option');
+    option.value = w;
+    option.textContent = 'Semana ' + w + (weekProgress(w) === 100 ? ' · ✅' : '');
+    option.selected = w === currentWeek;
+    select.appendChild(option);
+  }
+}
+
+function selectWeekFromSelect(value){ currentWeek = Number(value); currentExercise = 0; renderAll(); }
+function jumpWeek(amount){ currentWeek = Math.max(1, Math.min(state.config.weeks, currentWeek + amount)); currentExercise = 0; renderAll(); }
+function changeWeek(delta){ currentWeek = Math.max(1, Math.min(state.config.weeks, currentWeek + delta)); currentExercise = 0; renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+/* -------------------- DÍAS DE FUERZA -------------------- */
+function renderDayTabs(){
+  const wrap = $('dayTabs');
+  if (!state.config.strengthDays.length){ wrap.innerHTML = '<div class="text-xs text-slate-500 dark:text-slate-400 p-3">Todavía no tienes días de fuerza. Añade uno en 🛠️ Editar plan.</div>'; return; }
+  wrap.innerHTML = state.config.strengthDays.map(day => {
+    const active = day.id === currentDay;
+    return '<button data-day-id="' + day.id + '" class="day-tab-btn shrink-0 rounded-xl px-4 py-3 text-xs sm:text-sm font-black transition ' + (active ? 'bg-slate-950 dark:bg-violet-700 text-white shadow-sm' : 'bg-transparent text-slate-600 dark:text-slate-300') + '">' +
+      day.emoji + ' ' + esc(WEEKDAY_LABELS[day.weekday].toUpperCase()) + ' <span class="hidden sm:inline">· ' + esc(day.name) + '</span></button>';
+  }).join('');
+}
+
+function selectDay(dayId){ currentDay = dayId; currentExercise = 0; renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+/* -------------------- TARJETAS DE EJERCICIO -------------------- */
+function exerciseCard(day, exercise, index){
+  const r = getRecord(currentWeek, day.id, exercise.id);
+  const previous = getPreviousRecord(day.id, exercise.id);
+  const videoUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(exercise.search || exercise.name);
+  const previousText = previous && previous.weight !== '' ? 'Última vez: ' + esc(previous.weight) + ' kg' : 'Sin registro anterior';
+  const previousWeight = previous && previous.weight !== '' && !isNaN(+previous.weight) ? Number(previous.weight) : null;
+  const currentWeight = r.weight !== '' ? Number(r.weight) : null;
+
+  let trend = '';
+  if (previousWeight !== null && currentWeight !== null) {
+    if (currentWeight > previousWeight) trend = '<span class="text-emerald-600 font-black">⬆️ +' + (currentWeight - previousWeight).toFixed(1).replace('.0','') + ' kg</span>';
+    else if (currentWeight < previousWeight) trend = '<span class="text-orange-600 font-black">⬇️ ' + (currentWeight - previousWeight).toFixed(1).replace('.0','') + ' kg</span>';
+    else trend = '<span class="text-slate-500 dark:text-slate-400 font-black">➡️ Igual</span>';
+  }
+
+  const done = r.done;
+
+  return '<article id="exercise-' + index + '" class="exercise-card bg-white dark:bg-slate-900 rounded-3xl border ' + (done ? 'border-emerald-300 dark:border-emerald-800 ring-1 ring-emerald-100 dark:ring-emerald-900' : 'border-slate-200 dark:border-slate-800') + ' shadow-soft overflow-hidden">' +
+    '<div class="p-4 sm:p-5">' +
+      '<div class="flex items-start gap-3">' +
+        '<div class="w-9 h-9 shrink-0 rounded-xl ' + (done ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300') + ' flex items-center justify-center font-black">' + (done ? '✓' : index + 1) + '</div>' +
+        '<div class="min-w-0 flex-1">' +
+          '<div class="flex items-start justify-between gap-2">' +
+            '<div>' +
+              '<a href="' + videoUrl + '" target="_blank" rel="noopener noreferrer" class="text-[17px] sm:text-lg font-black text-slate-900 dark:text-slate-100 underline decoration-violet-300 underline-offset-4">' + esc(exercise.name) + ' 🎥</a>' +
+              '<div class="mt-1 flex flex-wrap items-center gap-1.5">' +
+                '<span class="inline-flex rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-[11px] font-black text-slate-600 dark:text-slate-300">' + esc(exercise.reps) + '</span>' +
+                '<span class="text-[11px] text-slate-400">' + previousText + '</span>' +
+              '</div>' +
+            '</div>' +
+            '<label class="shrink-0 flex items-center gap-1.5 cursor-pointer">' +
+              '<input type="checkbox" ' + (done ? 'checked' : '') + ' data-action="toggle-done" data-index="' + index + '" class="w-6 h-6 accent-emerald-600">' +
+            '</label>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="grid grid-cols-2 gap-2 mt-4">' +
+        '<div>' +
+          '<div class="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">🔢 Series</div>' +
+          '<div class="flex h-14">' +
+            '<button data-action="change-sets" data-index="' + index + '" data-delta="-1" class="w-12 rounded-l-2xl bg-slate-100 dark:bg-slate-800 active:bg-slate-200 text-xl font-black">−</button>' +
+            '<input id="sets-' + index + '" type="number" inputmode="numeric" min="0" step="1" value="' + esc(r.sets) + '" placeholder="0" data-action="save-input" data-field="sets" data-index="' + index + '" class="min-w-0 flex-1 text-center bg-slate-50 dark:bg-slate-950 border-y border-slate-200 dark:border-slate-700 text-xl font-black outline-none">' +
+            '<button data-action="change-sets" data-index="' + index + '" data-delta="1" class="w-12 rounded-r-2xl bg-slate-100 dark:bg-slate-800 active:bg-slate-200 text-xl font-black">+</button>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div class="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">🏋️ Peso máximo</div>' +
+          '<div class="flex h-14">' +
+            '<button data-action="change-weight" data-index="' + index + '" data-delta="-0.5" class="w-12 rounded-l-2xl bg-slate-100 dark:bg-slate-800 active:bg-slate-200 text-xl font-black">−</button>' +
+            '<input id="weight-' + index + '" type="number" inputmode="decimal" min="0" step="0.5" value="' + esc(r.weight) + '" placeholder="kg" data-action="save-input" data-field="weight" data-index="' + index + '" class="min-w-0 flex-1 text-center bg-slate-50 dark:bg-slate-950 border-y border-slate-200 dark:border-slate-700 text-xl font-black outline-none">' +
+            '<button data-action="change-weight" data-index="' + index + '" data-delta="0.5" class="w-12 rounded-r-2xl bg-slate-100 dark:bg-slate-800 active:bg-slate-200 text-xl font-black">+</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<input value="' + esc(r.notes) + '" placeholder="📝 Notas (opcional)" data-action="save-input" data-field="notes" data-index="' + index + '" class="mt-2 w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-950 px-3 text-sm outline-none">' +
+      (trend ? '<div class="mt-3 text-center text-xs bg-slate-50 dark:bg-slate-800 rounded-xl py-2">' + trend + '</div>' : '') +
+      '<button data-action="toggle-done" data-index="' + index + '" data-invert="1" class="mt-3 w-full h-12 rounded-2xl font-black text-sm ' + (done ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 active:bg-emerald-100 text-slate-700 dark:text-slate-300') + '">' + (done ? '✅ Ejercicio realizado' : '☐ Marcar como realizado') + '</button>' +
+    '</div>' +
+  '</article>';
+}
+
+/* -------------------- RENDER DEL DÍA -------------------- */
+function renderDay(){
+  const panel = $('dayPanel');
+  const day = getStrengthDay(currentDay);
+  if (!day) { panel.innerHTML = '<div class="bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-slate-400">No hay días de fuerza configurados. Pulsa 🛠️ para añadir uno.</div>'; updateMobileDaySummary(); return; }
+  const exercises = getDayExercises(day, currentWeek);
+  const progress = dayProgress(currentWeek, day.id);
+
+  panel.innerHTML =
+    '<div class="mb-3">' +
+      '<div class="flex items-end justify-between gap-2">' +
+        '<div>' +
+          '<div class="text-[11px] uppercase tracking-[.18em] font-black text-slate-500 dark:text-slate-400">' + day.emoji + ' ' + esc(WEEKDAY_LABELS[day.weekday]) + ' · ' + esc(day.name) + '</div>' +
+          '<h2 class="text-2xl sm:text-3xl font-black mt-1">Semana ' + currentWeek + '</h2>' +
+          (state.profile.startDate ? '<div class="text-xs text-slate-400 mt-0.5">' + dateForConfiguredDay(currentWeek, day.weekday) + '</div>' : '') +
+        '</div>' +
+        '<div class="text-right">' +
+          '<button id="copyPrevWeekBtn" class="mb-2 text-xs font-black text-violet-700 dark:text-violet-400 underline decoration-dotted">📋 Copiar semana anterior</button>' +
+          '<div class="desktop-only"><div class="text-xs text-slate-500 dark:text-slate-400">Completado</div><div class="text-2xl font-black">' + progress.percent + '%</div></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="space-y-3">' + exercises.map((ex, i) => exerciseCard(day, ex, i)).join('') + '</div>' +
+    (day.note ? '<div class="mt-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">📝 <strong>Nota:</strong> ' + esc(day.note) + '</div>' : '');
+
+  updateMobileDaySummary();
+}
+
+/* -------------------- EDICIÓN DE REGISTROS -------------------- */
+function saveInput(index, field, value){
+  const day = getStrengthDay(currentDay); if (!day) return;
+  const ex = getDayExercises(day, currentWeek)[index]; if (!ex) return;
   let clean = value;
-
-  if (field === 'distance') {
-    clean = value === '' ? '' : Math.max(0, Number(value));
-  }
-
-  updateCardioRecord(currentWeek, currentCardioDay, { [field]: clean });
-
-  const status = document.getElementById('cardioSaveStatus');
-  if (status) {
-    status.textContent = '💾 Guardado';
-    status.className = 'text-xs font-bold text-emerald-600';
-    setTimeout(() => {
-      status.textContent = 'Los datos se guardan automáticamente.';
-      status.className = 'text-xs font-bold text-slate-400';
-    }, 1200);
-  }
-
-  updateCardioEvolution();
-  updateCardioSummary();
+  if (field === 'sets') clean = value === '' ? '' : Math.max(0, Math.round(Number(value)));
+  if (field === 'weight') clean = value === '' ? '' : Math.max(0, Number(value));
+  updateRecord(currentWeek, day.id, ex.id, { [field]: clean });
+  renderDay();
 }
+function changeSets(index, amount){
+  const day = getStrengthDay(currentDay); if (!day) return;
+  const ex = getDayExercises(day, currentWeek)[index]; if (!ex) return;
+  const r = getRecord(currentWeek, day.id, ex.id);
+  const value = Math.max(0, (Number(r.sets) || 0) + amount);
+  updateRecord(currentWeek, day.id, ex.id, { sets: value });
+  renderDay();
+}
+function changeWeight(index, amount){
+  const day = getStrengthDay(currentDay); if (!day) return;
+  const ex = getDayExercises(day, currentWeek)[index]; if (!ex) return;
+  const r = getRecord(currentWeek, day.id, ex.id);
+  const value = Math.max(0, (Number(r.weight) || 0) + amount);
+  updateRecord(currentWeek, day.id, ex.id, { weight: Number(value.toFixed(1)) });
+  renderDay();
+}
+function toggleDone(index, checked){
+  const day = getStrengthDay(currentDay); if (!day) return;
+  const ex = getDayExercises(day, currentWeek)[index]; if (!ex) return;
+  updateRecord(currentWeek, day.id, ex.id, { done: checked });
+  currentExercise = index;
+  renderDay();
+  if (checked) toast('✅ Ejercicio guardado');
+}
+function saveAndNext(){
+  const day = getStrengthDay(currentDay); if (!day) return;
+  const exercises = getDayExercises(day, currentWeek);
+  if (!exercises.length) return;
+  const index = currentExercise;
+  const ex = exercises[index]; if (!ex) return;
+  const setsInput = $('sets-' + index), weightInput = $('weight-' + index);
+  const r = getRecord(currentWeek, day.id, ex.id);
+  updateRecord(currentWeek, day.id, ex.id, { sets: setsInput ? setsInput.value : r.sets, weight: weightInput ? weightInput.value : r.weight, done: true });
 
-function renderCardio() {
-  const tabs = document.querySelectorAll('.cardio-day-tab');
-
-  tabs.forEach(tab => {
-    const day = tab.id.replace('cardioTab-', '');
-    tab.classList.toggle('active', day === currentCardioDay);
+  if (currentExercise < exercises.length - 1) {
+    currentExercise++;
+    renderDay();
+    setTimeout(() => { const next = $('exercise-' + currentExercise); if (next) next.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+    toast('➡️ Siguiente ejercicio');
+  } else {
+    toast('🎉 ¡Entrenamiento completado!');
+    renderDay();
+  }
+}
+function copyPreviousWeekStrength(){
+  const day = getStrengthDay(currentDay);
+  if (!day) return;
+  if (currentWeek <= 1) { toast('No hay semana anterior.'); return; }
+  let copied = 0;
+  getDayExercises(day, currentWeek).forEach(ex => {
+    const cur = getRecord(currentWeek, day.id, ex.id);
+    const prev = getRecord(currentWeek - 1, day.id, ex.id);
+    if (cur.sets === '' && cur.weight === '' && (prev.sets !== '' || prev.weight !== '')) {
+      updateRecord(currentWeek, day.id, ex.id, { sets: prev.sets, weight: prev.weight });
+      copied++;
+    }
   });
-
-  const c = getCardioRecord(currentWeek, currentCardioDay);
-
-  const title = document.getElementById('cardioSelectedDay');
-  const date = document.getElementById('cardioSelectedDate');
-  const activity = document.getElementById('cardioActivity');
-  const distance = document.getElementById('cardioDistance');
-  const avgTime = document.getElementById('cardioAvgTime');
-  const notes = document.getElementById('cardioNotes');
-  const done = document.getElementById('cardioDone');
-
-  if (title) {
-    title.textContent = `${cardioDayEmojis[currentCardioDay]} ${cardioDayLabels[currentCardioDay]}`;
-  }
-
-  if (date) {
-    date.textContent = weekDayDate(currentWeek, currentCardioDay) || `Semana ${currentWeek}`;
-  }
-
-  if (activity) {
-    activity.innerHTML = cardioOptions.map(option =>
-      `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`
-    ).join('');
-    activity.value = c.activity;
-  }
-
-  if (distance) distance.value = c.distance;
-  if (avgTime) avgTime.value = c.avgTime;
-  if (notes) notes.value = c.notes;
-  if (done) done.checked = c.done;
-
-  updateCardioEvolution();
-  updateCardioSummary();
+  renderDay();
+  toast(copied ? '📋 Copiados ' + copied + ' ejercicio(s) de la semana anterior' : 'No había nada que copiar (ya tienes datos, o no hay registro anterior).');
 }
 
-function updateCardioSummary() {
-  // Compatible con la versión anterior si el elemento existe.
-  const el = document.getElementById('cardioTotalSummary');
-  if (!el) return;
+/* -------------------- RESÚMENES -------------------- */
+function updateMobileDaySummary(){
+  const day = getStrengthDay(currentDay);
+  const p = day ? dayProgress(currentWeek, day.id) : { total: 0, done: 0, percent: 0 };
+  $('mobileDayTitle').textContent = day ? day.emoji + ' ' + day.name : 'Sin días configurados';
+  $('mobileDayProgressText').textContent = p.done + ' de ' + p.total + ' ejercicios';
+  $('mobileDayPercent').textContent = p.percent + '%';
+  $('mobileDayProgressBar').style.width = p.percent + '%';
+}
+function updateAllStats(){ renderWeekNavigation(); updateMobileDaySummary(); }
 
-  el.textContent = cardioDays.filter(day => getCardioRecord(currentWeek, day).done).length;
+/* -------------------- PERFIL -------------------- */
+function saveInitialProfile(event){
+  event.preventDefault();
+  state.profile.name = $('initialName').value.trim();
+  state.profile.startDate = $('initialDate').value;
+  saveState();
+  $('setupModal').style.display = 'none';
+  renderAll();
+  toast('🚀 ¡Plan configurado!');
+}
+function openProfile(){
+  $('editName').value = state.profile.name || '';
+  $('editDate').value = state.profile.startDate || '';
+  $('profileModal').classList.remove('hidden'); $('profileModal').classList.add('flex');
+}
+function closeProfile(){ $('profileModal').classList.add('hidden'); $('profileModal').classList.remove('flex'); }
+function saveProfile(event){
+  event.preventDefault();
+  state.profile.name = $('editName').value.trim();
+  state.profile.startDate = $('editDate').value;
+  saveState(); closeProfile(); renderAll();
+  toast('✅ Perfil actualizado');
 }
 
-function updateCardioEvolution() {
-  const el = document.getElementById('cardioEvolution');
-  if (!el) return;
+/* -------------------- TOAST -------------------- */
+function toast(message){
+  const el = $('toast');
+  el.querySelector('div').textContent = message;
+  el.classList.remove('hidden');
+  clearTimeout(window.toastTimer);
+  window.toastTimer = setTimeout(() => el.classList.add('hidden'), 1800);
+}
 
-  let currentDistance = 0;
-  let totalDistance = 0;
-  let completed = 0;
+/* -------------------- CARDIO -------------------- */
+function renderCardioTabs(){
+  const wrap = $('cardioTabs');
+  if (!state.config.cardioDays.length){ wrap.innerHTML = '<div class="text-xs text-slate-500 dark:text-slate-400 p-3">Sin días de cardio configurados.</div>'; return; }
+  wrap.innerHTML = state.config.cardioDays.map(day => {
+    const active = day.id === currentCardioDay;
+    return '<button data-cardio-day-id="' + day.id + '" class="cardio-day-tab-btn shrink-0 rounded-2xl px-4 py-3 font-black transition ' + (active ? 'bg-slate-950 dark:bg-violet-700 text-white' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300') + '">' + day.emoji + ' ' + esc(WEEKDAY_LABELS[day.weekday].toUpperCase()) + '</button>';
+  }).join('');
+}
+function selectCardioDay(dayId){ if (!getCardioDay(dayId)) return; currentCardioDay = dayId; renderCardio(); }
 
-  cardioDays.forEach(day => {
-    const c = getCardioRecord(currentWeek, day);
-    if (c.distance !== '') currentDistance += Number(c.distance) || 0;
-    if (c.done) completed++;
-  });
+function saveSelectedCardio(field, value){
+  const day = getCardioDay(currentCardioDay); if (!day) return;
+  let clean = value;
+  if (field === 'distance') clean = value === '' ? '' : Math.max(0, Number(value));
+  updateCardioRecord(currentWeek, day.id, { [field]: clean });
+  const status = $('cardioSaveStatus');
+  status.textContent = '💾 Guardado'; status.className = 'text-xs font-bold text-emerald-600';
+  setTimeout(() => { status.textContent = 'Los datos se guardan automáticamente.'; status.className = 'text-xs font-bold text-slate-400'; }, 1200);
+  updateCardioEvolution(); updateCardioSummary();
+}
 
-  for (let week = 1; week <= 12; week++) {
-    cardioDays.forEach(day => {
-      const c = getCardioRecord(week, day);
-      if (c.distance !== '') totalDistance += Number(c.distance) || 0;
-    });
-  }
+function renderCardio(){
+  renderCardioTabs();
+  const day = getCardioDay(currentCardioDay);
+  const wrap = $('cardioDayPanelWrap');
+  if (!day) { wrap.innerHTML = '<div class="p-8 text-center text-slate-400">No hay días de cardio configurados.</div>'; $('cardioEvolution').innerHTML = ''; return; }
+  if (!wrap.querySelector('#cardioSelectedDay')) location.reload(); // salvaguarda si el wrap fue reemplazado; normalmente no ocurre
+
+  const c = getCardioRecord(currentWeek, day.id);
+  $('cardioSelectedDay').textContent = day.emoji + ' ' + WEEKDAY_LABELS[day.weekday];
+  $('cardioSelectedDate').textContent = dateForConfiguredDay(currentWeek, day.weekday) || ('Semana ' + currentWeek);
+  $('cardioActivity').innerHTML = state.config.cardioActivities.map(o => '<option value="' + esc(o) + '">' + esc(o) + '</option>').join('');
+  $('cardioActivity').value = c.activity;
+  $('cardioDistance').value = c.distance;
+  $('cardioAvgTime').value = c.avgTime;
+  $('cardioNotes').value = c.notes;
+  $('cardioDone').checked = c.done;
+
+  updateCardioEvolution(); updateCardioSummary();
+}
+function updateCardioSummary(){ /* reservado para futuras métricas agregadas */ }
+
+function updateCardioEvolution(){
+  const el = $('cardioEvolution'); if (!el) return;
+  const days = state.config.cardioDays;
+  if (!days.length) { el.innerHTML = ''; return; }
+  let currentDistance = 0, totalDistance = 0, completed = 0;
+  days.forEach(day => { const c = getCardioRecord(currentWeek, day.id); if (c.distance !== '') currentDistance += Number(c.distance) || 0; if (c.done) completed++; });
+  for (let w = 1; w <= state.config.weeks; w++) days.forEach(day => { const c = getCardioRecord(w, day.id); if (c.distance !== '') totalDistance += Number(c.distance) || 0; });
 
   let previousDistance = 0;
+  if (currentWeek > 1) days.forEach(day => { const c = getCardioRecord(currentWeek - 1, day.id); if (c.distance !== '') previousDistance += Number(c.distance) || 0; });
 
+  let comparison = '📏 ' + currentDistance.toFixed(2) + ' km registrados esta semana.';
   if (currentWeek > 1) {
-    cardioDays.forEach(day => {
-      const c = getCardioRecord(currentWeek - 1, day);
-      if (c.distance !== '') previousDistance += Number(c.distance) || 0;
-    });
+    if (currentDistance > previousDistance) comparison = '⬆️ ' + currentDistance.toFixed(2) + ' km esta semana frente a ' + previousDistance.toFixed(2) + ' km la anterior.';
+    else if (currentDistance < previousDistance) comparison = '⬇️ ' + currentDistance.toFixed(2) + ' km esta semana frente a ' + previousDistance.toFixed(2) + ' km la anterior.';
+    else comparison = '➡️ ' + currentDistance.toFixed(2) + ' km esta semana, igual que la anterior.';
   }
 
-  let comparison = `📏 ${currentDistance.toFixed(2)} km registrados esta semana.`;
-
-  if (currentWeek > 1) {
-    if (currentDistance > previousDistance) {
-      comparison = `⬆️ ${currentDistance.toFixed(2)} km esta semana frente a ${previousDistance.toFixed(2)} km la anterior.`;
-    } else if (currentDistance < previousDistance) {
-      comparison = `⬇️ ${currentDistance.toFixed(2)} km esta semana frente a ${previousDistance.toFixed(2)} km la anterior.`;
-    } else {
-      comparison = `➡️ ${currentDistance.toFixed(2)} km esta semana, igual que la anterior.`;
-    }
-  }
-
-  el.innerHTML = `
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-      <div class="bg-white rounded-2xl p-3">
-        <div class="text-[10px] uppercase font-black text-slate-400">Semana actual</div>
-        <div class="text-lg font-black">${currentDistance.toFixed(2)} km</div>
-      </div>
-      <div class="bg-white rounded-2xl p-3">
-        <div class="text-[10px] uppercase font-black text-slate-400">Sesiones hechas</div>
-        <div class="text-lg font-black">${completed}/4</div>
-      </div>
-      <div class="bg-white rounded-2xl p-3">
-        <div class="text-[10px] uppercase font-black text-slate-400">Media por día</div>
-        <div class="text-lg font-black">${(currentDistance / 4).toFixed(2)} km</div>
-      </div>
-      <div class="bg-white rounded-2xl p-3">
-        <div class="text-[10px] uppercase font-black text-slate-400">Total 12 semanas</div>
-        <div class="text-lg font-black">${totalDistance.toFixed(2)} km</div>
-      </div>
-    </div>
-    <div class="mt-2 font-bold">${comparison}</div>
-  `;
+  el.innerHTML =
+    '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">' +
+      '<div class="bg-white dark:bg-slate-900 rounded-2xl p-3"><div class="text-[10px] uppercase font-black text-slate-400">Semana actual</div><div class="text-lg font-black">' + currentDistance.toFixed(2) + ' km</div></div>' +
+      '<div class="bg-white dark:bg-slate-900 rounded-2xl p-3"><div class="text-[10px] uppercase font-black text-slate-400">Sesiones hechas</div><div class="text-lg font-black">' + completed + '/' + days.length + '</div></div>' +
+      '<div class="bg-white dark:bg-slate-900 rounded-2xl p-3"><div class="text-[10px] uppercase font-black text-slate-400">Media por día</div><div class="text-lg font-black">' + (days.length ? (currentDistance / days.length).toFixed(2) : '0.00') + ' km</div></div>' +
+      '<div class="bg-white dark:bg-slate-900 rounded-2xl p-3"><div class="text-[10px] uppercase font-black text-slate-400">Total del programa</div><div class="text-lg font-black">' + totalDistance.toFixed(2) + ' km</div></div>' +
+    '</div>' +
+    '<div class="mt-2 font-bold">' + comparison + '</div>';
 }
 
-/* -------------------- EXPORTAR CSV / EXCEL -------------------- */
+/* -------------------- EVOLUCIÓN DE FUERZA -------------------- */
+function populateStrengthEvoSelect(){
+  const select = $('strengthEvoSelect');
+  const prevValue = select.value;
+  const labelByKey = new Map();
+  state.config.strengthDays.forEach(day => (day.blocks || []).forEach(block => block.exercises.forEach(ex => {
+    labelByKey.set(day.id + '::' + ex.id, day.emoji + ' ' + day.name + ' · ' + ex.name);
+  })));
+  const options = Array.from(labelByKey, ([value, label]) => ({ value, label }));
+  select.innerHTML = options.map(o => '<option value="' + o.value + '">' + esc(o.label) + '</option>').join('') || '<option value="">Sin ejercicios configurados</option>';
+  if (options.some(o => o.value === prevValue)) select.value = prevValue;
+}
+function computeStrengthSeries(dayId, exId){
+  const rows = [];
+  for (let w = 1; w <= state.config.weeks; w++) {
+    const r = getRecord(w, dayId, exId);
+    if (r.weight !== '' && r.weight != null && !isNaN(+r.weight)) rows.push({ week: w, weight: +r.weight, sets: r.sets });
+  }
+  let max = -Infinity;
+  rows.forEach(r => { r.isPR = r.weight > max; if (r.isPR) max = r.weight; });
+  return rows;
+}
+function renderStrengthEvolution(){
+  populateStrengthEvoSelect();
+  const value = $('strengthEvoSelect').value;
+  if (!value) { $('strengthEvoTable').innerHTML = ''; return; }
+  const [dayId, exId] = value.split('::');
+  const rows = computeStrengthSeries(dayId, exId);
 
+  try {
+    if (typeof Chart === 'undefined') throw new Error('Chart.js no disponible (sin conexión)');
+    $('strengthChart').classList.remove('hidden'); $('strengthChartFallback').classList.add('hidden');
+    if (strengthChart) strengthChart.destroy();
+    strengthChart = new Chart($('strengthChart'), {
+      type: 'line',
+      data: { labels: rows.map(r => 'S' + r.week), datasets: [{ label: 'kg', data: rows.map(r => r.weight), tension: .25, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.15)', fill: true }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+  } catch (e) {
+    console.error('No se pudo dibujar el gráfico de evolución.', e);
+    $('strengthChart').classList.add('hidden'); $('strengthChartFallback').classList.remove('hidden');
+  }
+
+  $('strengthEvoTable').innerHTML = rows.length
+    ? '<table class="w-full text-sm"><tr class="bg-slate-50 dark:bg-slate-800"><th class="p-2 text-left">Semana</th><th class="p-2">Peso</th><th class="p-2">Series</th></tr>' +
+      rows.slice().reverse().map(r => '<tr class="border-t dark:border-slate-800' + (r.isPR ? ' pr-row' : '') + '"><td class="p-2">S' + r.week + (r.isPR ? ' 🏆' : '') + '</td><td class="p-2 text-center font-black">' + r.weight + ' kg</td><td class="p-2 text-center">' + esc(r.sets) + '</td></tr>').join('') + '</table>'
+    : '<div class="text-center text-slate-400 py-6">Sin registros de peso todavía para este ejercicio.</div>';
+}
+
+/* -------------------- EDITOR DE PLAN -------------------- */
+function openPlanEditor(){
+  planDraft = JSON.parse(JSON.stringify(state.config));
+  renderPlanEditor();
+  $('planModal').classList.remove('hidden'); $('planModal').classList.add('flex');
+}
+function closePlanEditor(){ planDraft = null; $('planModal').classList.add('hidden'); $('planModal').classList.remove('flex'); }
+
+function weekdaySelectHTML(selected){
+  return WEEKDAY_ORDER.map(w => '<option value="' + w + '" ' + (w === selected ? 'selected' : '') + '>' + WEEKDAY_LABELS[w] + '</option>').join('');
+}
+function planExerciseRowHTML(dayId, blockId, ex, idx, total){
+  return '<div class="border border-slate-200 dark:border-slate-700 rounded-xl p-2 mb-2">' +
+    '<div class="grid grid-cols-1 sm:grid-cols-[1fr_110px] gap-2">' +
+      '<input data-action="pe-ex-field" data-day="' + dayId + '" data-block="' + blockId + '" data-ex="' + ex.id + '" data-field="name" value="' + esc(ex.name) + '" placeholder="Nombre del ejercicio" class="h-11 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-3 text-sm">' +
+      '<input data-action="pe-ex-field" data-day="' + dayId + '" data-block="' + blockId + '" data-ex="' + ex.id + '" data-field="reps" value="' + esc(ex.reps) + '" placeholder="3×8-10" class="h-11 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-3 text-sm text-center">' +
+    '</div>' +
+    '<input data-action="pe-ex-field" data-day="' + dayId + '" data-block="' + blockId + '" data-ex="' + ex.id + '" data-field="search" value="' + esc(ex.search) + '" placeholder="Búsqueda de vídeo (YouTube)" class="mt-2 h-10 w-full border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-3 text-xs">' +
+    '<div class="flex justify-between items-center mt-2">' +
+      '<div class="flex gap-1">' +
+        '<button type="button" data-action="pe-ex-up" data-day="' + dayId + '" data-block="' + blockId + '" data-ex="' + ex.id + '" class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800' + (idx === 0 ? ' opacity-30 pointer-events-none' : '') + '">↑</button>' +
+        '<button type="button" data-action="pe-ex-down" data-day="' + dayId + '" data-block="' + blockId + '" data-ex="' + ex.id + '" class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800' + (idx === total - 1 ? ' opacity-30 pointer-events-none' : '') + '">↓</button>' +
+      '</div>' +
+      '<button type="button" data-action="pe-ex-del" data-day="' + dayId + '" data-block="' + blockId + '" data-ex="' + ex.id + '" class="text-red-600 text-xs font-black">🗑️ Eliminar ejercicio</button>' +
+    '</div>' +
+  '</div>';
+}
+function planBlockCardHTML(day, block, blockIndex, weeksTotal){
+  const toWeek = blockToWeek(day, blockIndex, weeksTotal);
+  const rangeLabel = toWeek > block.fromWeek ? ('Semanas ' + block.fromWeek + '–' + toWeek) : ('Semana ' + block.fromWeek + (toWeek < block.fromWeek ? ' (fuera de la duración actual)' : ''));
+  return '<div class="border border-slate-200 dark:border-slate-700 rounded-xl p-2 mb-2 bg-slate-50 dark:bg-slate-950/40">' +
+    '<div class="flex items-center justify-between mb-2">' +
+      '<div class="text-xs font-black text-violet-700 dark:text-violet-400">📦 ' + esc(rangeLabel) + '</div>' +
+      (blockIndex > 0 ? '<button type="button" data-action="pe-block-del" data-day="' + day.id + '" data-block="' + block.id + '" class="text-red-600 text-xs font-black">🗑️ Eliminar bloque</button>' : '') +
+    '</div>' +
+    (block.exercises.map((ex, i) => planExerciseRowHTML(day.id, block.id, ex, i, block.exercises.length)).join('') || '<div class="text-xs text-slate-400 text-center py-2">Sin ejercicios en este bloque.</div>') +
+    '<button type="button" data-action="pe-ex-add" data-day="' + day.id + '" data-block="' + block.id + '" class="text-violet-700 dark:text-violet-400 text-xs font-black">➕ Añadir ejercicio</button>' +
+  '</div>';
+}
+function planStrengthDayCardHTML(day, weeksTotal){
+  return '<div class="border border-slate-200 dark:border-slate-700 rounded-2xl p-3 mb-3">' +
+    '<div class="grid grid-cols-[100px_56px_1fr] gap-2">' +
+      '<select data-action="pe-day-field" data-kind="strength" data-day="' + day.id + '" data-field="weekday" class="h-11 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-2 text-xs">' + weekdaySelectHTML(day.weekday) + '</select>' +
+      '<input data-action="pe-day-field" data-kind="strength" data-day="' + day.id + '" data-field="emoji" value="' + esc(day.emoji) + '" class="h-11 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-2 text-center">' +
+      '<input data-action="pe-day-field" data-kind="strength" data-day="' + day.id + '" data-field="name" value="' + esc(day.name) + '" placeholder="Nombre (ej. Fuerza A)" class="h-11 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-3 text-sm font-black">' +
+    '</div>' +
+    '<textarea data-action="pe-day-field" data-kind="strength" data-day="' + day.id + '" data-field="note" placeholder="Nota del día (opcional)" rows="2" class="mt-2 w-full border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-3 py-2 text-xs">' + esc(day.note) + '</textarea>' +
+    '<div class="mt-3">' + day.blocks.map((b, i) => planBlockCardHTML(day, b, i, weeksTotal)).join('') + '</div>' +
+    '<button type="button" data-action="pe-block-add" data-day="' + day.id + '" class="w-full mt-1 p-2 rounded-xl border-2 border-dashed border-violet-300 dark:border-violet-800 text-violet-800 dark:text-violet-300 font-black text-xs">➕ Añadir bloque de ' + BLOCK_SIZE_WEEKS + ' semanas (copia el anterior)</button>' +
+    '<div class="flex justify-end items-center mt-2">' +
+      '<button type="button" data-action="pe-day-del" data-kind="strength" data-day="' + day.id + '" class="text-red-600 text-xs font-black">🗑️ Eliminar día</button>' +
+    '</div>' +
+  '</div>';
+}
+function planCardioDayCardHTML(day){
+  return '<div class="border border-slate-200 dark:border-slate-700 rounded-2xl p-3 mb-3 flex items-center gap-2">' +
+    '<select data-action="pe-day-field" data-kind="cardio" data-day="' + day.id + '" data-field="weekday" class="h-11 flex-1 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-2 text-xs">' + weekdaySelectHTML(day.weekday) + '</select>' +
+    '<input data-action="pe-day-field" data-kind="cardio" data-day="' + day.id + '" data-field="emoji" value="' + esc(day.emoji) + '" class="h-11 w-16 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-2 text-center">' +
+    '<button type="button" data-action="pe-day-del" data-kind="cardio" data-day="' + day.id + '" class="text-red-600 text-xs font-black shrink-0">🗑️</button>' +
+  '</div>';
+}
+function renderPlanEditor(){
+  const d = planDraft;
+  $('planEditorBody').innerHTML =
+    '<div>' +
+      '<div class="font-black">📅 Duración del programa</div>' +
+      '<div class="flex items-center gap-2 mt-2"><input id="peWeeks" type="number" min="1" max="104" value="' + d.weeks + '" class="h-11 w-24 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-3 text-center font-black"><span class="text-sm text-slate-500 dark:text-slate-400">semanas</span></div>' +
+    '</div>' +
+    '<div>' +
+      '<div class="font-black">💪 Días de fuerza</div>' +
+      '<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Añade tantos días y ejercicios como quieras, en el orden que prefieras.</p>' +
+      '<div class="mt-3">' + (d.strengthDays.map(day => planStrengthDayCardHTML(day, d.weeks)).join('') || '<div class="text-sm text-slate-400 text-center py-3">Sin días de fuerza.</div>') + '</div>' +
+      '<button type="button" data-action="pe-add-strength-day" class="w-full p-3 rounded-2xl border-2 border-dashed border-violet-300 dark:border-violet-800 text-violet-800 dark:text-violet-300 font-black text-sm">➕ Añadir día de fuerza</button>' +
+    '</div>' +
+    '<div>' +
+      '<div class="font-black">❤️ Días de cardio</div>' +
+      '<div class="mt-3">' + (d.cardioDays.map(planCardioDayCardHTML).join('') || '<div class="text-sm text-slate-400 text-center py-3">Sin días de cardio.</div>') + '</div>' +
+      '<button type="button" data-action="pe-add-cardio-day" class="w-full p-3 rounded-2xl border-2 border-dashed border-sky-300 dark:border-sky-800 text-sky-800 dark:text-sky-300 font-black text-sm">➕ Añadir día de cardio</button>' +
+    '</div>' +
+    '<div>' +
+      '<div class="font-black">🏃 Actividades de cardio</div>' +
+      '<div class="flex gap-2 mt-2"><input id="peNewActivity" placeholder="Nueva actividad (ej. Natación)" class="h-11 flex-1 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-xl px-3 text-sm"><button type="button" data-action="pe-add-activity" class="h-11 px-4 rounded-xl bg-violet-700 text-white font-black">➕</button></div>' +
+      '<div class="flex flex-wrap gap-2 mt-3">' + d.cardioActivities.map((a, i) => '<span class="inline-flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 text-sm font-black">' + esc(a) + '<button type="button" data-action="pe-activity-del" data-idx="' + i + '" class="text-red-600">✕</button></span>').join('') + '</div>' +
+    '</div>';
+}
+
+function planEditorHandleChange(e){
+  if (e.target.id === 'peWeeks') { planDraft.weeks = Math.max(1, Math.min(104, Number(e.target.value) || 12)); return; }
+  const t = e.target.closest('[data-action]'); if (!t) return;
+  if (t.dataset.action === 'pe-day-field') {
+    const list = t.dataset.kind === 'strength' ? planDraft.strengthDays : planDraft.cardioDays;
+    const day = list.find(d => d.id === t.dataset.day); if (!day) return;
+    day[t.dataset.field] = t.value;
+  } else if (t.dataset.action === 'pe-ex-field') {
+    const day = planDraft.strengthDays.find(d => d.id === t.dataset.day); if (!day) return;
+    const block = day.blocks.find(b => b.id === t.dataset.block); if (!block) return;
+    const ex = block.exercises.find(x => x.id === t.dataset.ex); if (!ex) return;
+    ex[t.dataset.field] = t.value;
+  }
+}
+function planEditorHandleClick(e){
+  const t = e.target.closest('[data-action]'); if (!t) return;
+  const action = t.dataset.action;
+  if (action === 'pe-add-strength-day') {
+    planDraft.strengthDays.push({ id: uid(), weekday: 'monday', emoji: '💪', name: 'Nuevo día', note: '', blocks: [{ id: uid(), fromWeek: 1, exercises: [{ id: uid(), name: '', reps: '3×8-10', search: '' }] }] });
+    renderPlanEditor();
+  } else if (action === 'pe-add-cardio-day') {
+    planDraft.cardioDays.push({ id: uid(), weekday: 'tuesday', emoji: '❤️' });
+    renderPlanEditor();
+  } else if (action === 'pe-day-del') {
+    const kind = t.dataset.kind;
+    if (!confirm('¿Eliminar este día del plan? Los registros ya guardados de este día no se borrarán, pero dejarán de mostrarse.')) return;
+    if (kind === 'strength') planDraft.strengthDays = planDraft.strengthDays.filter(d => d.id !== t.dataset.day);
+    else planDraft.cardioDays = planDraft.cardioDays.filter(d => d.id !== t.dataset.day);
+    renderPlanEditor();
+  } else if (action === 'pe-block-add') {
+    const day = planDraft.strengthDays.find(d => d.id === t.dataset.day); if (!day) return;
+    const last = day.blocks[day.blocks.length - 1];
+    const nextFrom = last.fromWeek + BLOCK_SIZE_WEEKS;
+    if (nextFrom > planDraft.weeks) { alert('No quedan semanas disponibles para otro bloque de ' + BLOCK_SIZE_WEEKS + ' semanas. Aumenta primero la duración del programa (arriba).'); return; }
+    day.blocks.push({ id: uid(), fromWeek: nextFrom, exercises: last.exercises.map(ex => ({ id: ex.id, name: ex.name, reps: ex.reps, search: ex.search })) });
+    renderPlanEditor();
+  } else if (action === 'pe-block-del') {
+    const day = planDraft.strengthDays.find(d => d.id === t.dataset.day); if (!day) return;
+    if (day.blocks.length <= 1) return;
+    if (!confirm('¿Eliminar este bloque de semanas? Los registros ya guardados de esas semanas no se borrarán; se mostrará el bloque anterior en su lugar.')) return;
+    day.blocks = day.blocks.filter(b => b.id !== t.dataset.block);
+    renderPlanEditor();
+  } else if (action === 'pe-ex-add') {
+    const day = planDraft.strengthDays.find(d => d.id === t.dataset.day); if (!day) return;
+    const block = day.blocks.find(b => b.id === t.dataset.block); if (!block) return;
+    block.exercises.push({ id: uid(), name: '', reps: '3×8-10', search: '' });
+    renderPlanEditor();
+  } else if (action === 'pe-ex-del') {
+    const day = planDraft.strengthDays.find(d => d.id === t.dataset.day); if (!day) return;
+    const block = day.blocks.find(b => b.id === t.dataset.block); if (!block) return;
+    block.exercises = block.exercises.filter(x => x.id !== t.dataset.ex);
+    renderPlanEditor();
+  } else if (action === 'pe-ex-up' || action === 'pe-ex-down') {
+    const day = planDraft.strengthDays.find(d => d.id === t.dataset.day); if (!day) return;
+    const block = day.blocks.find(b => b.id === t.dataset.block); if (!block) return;
+    const i = block.exercises.findIndex(x => x.id === t.dataset.ex);
+    const j = action === 'pe-ex-up' ? i - 1 : i + 1;
+    if (j < 0 || j >= block.exercises.length) return;
+    const tmp = block.exercises[i]; block.exercises[i] = block.exercises[j]; block.exercises[j] = tmp;
+    renderPlanEditor();
+  } else if (action === 'pe-add-activity') {
+    const input = $('peNewActivity'); const name = input.value.trim();
+    if (name && !planDraft.cardioActivities.some(a => a.toLowerCase() === name.toLowerCase())) planDraft.cardioActivities.push(name);
+    renderPlanEditor();
+  } else if (action === 'pe-activity-del') {
+    planDraft.cardioActivities.splice(+t.dataset.idx, 1);
+    renderPlanEditor();
+  }
+}
+function savePlanEditor(){
+  if (!planDraft.strengthDays.some(d => d.blocks.some(b => b.exercises.length))) {
+    if (!confirm('No hay ningún ejercicio de fuerza configurado. ¿Guardar igualmente?')) return;
+  }
+  state.config = planDraft; save();
+  currentWeek = Math.min(currentWeek, state.config.weeks) || 1;
+  if (!getStrengthDay(currentDay)) currentDay = state.config.strengthDays[0] ? state.config.strengthDays[0].id : null;
+  if (!getCardioDay(currentCardioDay)) currentCardioDay = state.config.cardioDays[0] ? state.config.cardioDays[0].id : null;
+  currentExercise = 0;
+  closePlanEditor();
+  renderAll();
+  toast('✅ Plan actualizado');
+}
+
+/* -------------------- EXPORTAR EXCEL -------------------- */
+function safeFilename(value){
+  return String(value).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_');
+}
 function exportExcel(){
-  if(typeof XLSX==='undefined'){toast('⚠️ No se pudo cargar el exportador Excel');return;}
-  const wb=XLSX.utils.book_new();
-  const strength=[['Nombre',state.profile.name],['Fecha inicio',state.profile.startDate],[],['Semana','Día','Ejercicio','Repeticiones objetivo','Series realizadas','Peso máximo (kg)','Completado']];
-  for(let w=1;w<=12;w++) Object.keys(plan).forEach(day=>plan[day].exercises.forEach((ex,i)=>{const r=getRecord(w,day,i);strength.push([w,dayLabels[day],ex.name,ex.reps,r.sets,r.weight,r.done?'Sí':'No']);}));
-  const ws1=XLSX.utils.aoa_to_sheet(strength); ws1['!cols']=[{wch:8},{wch:12},{wch:28},{wch:20},{wch:18},{wch:18},{wch:12}]; XLSX.utils.book_append_sheet(wb,ws1,'Fuerza');
-  const cardio=[['Nombre',state.profile.name],['Fecha inicio',state.profile.startDate],[],['Semana','Fecha','Día','Actividad','Distancia (km)','Tiempo medio','Notas','Completado']];
-  for(let w=1;w<=12;w++) cardioDays.forEach(day=>{
-    const c=getCardioRecord(w,day);
-    cardio.push([w,weekDayDate(w,day),cardioDayLabels[day],c.activity,c.distance,c.avgTime,c.notes,c.done?'Sí':'No']);
+  if (typeof XLSX === 'undefined') { toast('⚠️ No se pudo cargar el exportador Excel'); return; }
+  const wb = XLSX.utils.book_new();
+  const strength = [['Nombre', state.profile.name], ['Fecha inicio', state.profile.startDate], [], ['Semana','Día','Ejercicio','Repeticiones objetivo','Series realizadas','Peso máximo (kg)','Notas','Completado']];
+  for (let w = 1; w <= state.config.weeks; w++) state.config.strengthDays.forEach(day => getDayExercises(day, w).forEach(ex => {
+    const r = getRecord(w, day.id, ex.id);
+    strength.push([w, WEEKDAY_LABELS[day.weekday], ex.name, ex.reps, r.sets, r.weight, r.notes || '', r.done ? 'Sí' : 'No']);
+  }));
+  const ws1 = XLSX.utils.aoa_to_sheet(strength); ws1['!cols'] = [{wch:8},{wch:12},{wch:28},{wch:20},{wch:18},{wch:18},{wch:24},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Fuerza');
+
+  const cardio = [['Nombre', state.profile.name], ['Fecha inicio', state.profile.startDate], [], ['Semana','Fecha','Día','Actividad','Distancia (km)','Tiempo medio','Notas','Completado']];
+  for (let w = 1; w <= state.config.weeks; w++) state.config.cardioDays.forEach(day => {
+    const c = getCardioRecord(w, day.id);
+    cardio.push([w, dateForConfiguredDay(w, day.weekday), WEEKDAY_LABELS[day.weekday], c.activity, c.distance, c.avgTime, c.notes, c.done ? 'Sí' : 'No']);
   });
-  const ws2=XLSX.utils.aoa_to_sheet(cardio); ws2['!cols']=[{wch:8},{wch:13},{wch:13},{wch:20},{wch:18},{wch:18},{wch:35},{wch:12}]; XLSX.utils.book_append_sheet(wb,ws2,'Cardio');
-  const evo=[['Semana','Distancia total (km)','Sesiones completadas']];
-  for(let w=1;w<=12;w++){let d=0,done=0;cardioDays.forEach(day=>{const c=getCardioRecord(w,day);if(c.distance!=='')d+=Number(c.distance)||0;if(c.done)done++;});evo.push([w,Number(d.toFixed(2)),done]);}
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(evo),'Evolución');
-  XLSX.writeFile(wb,`Entrenamiento_12_Semanas_${safeFilename(state.profile.name||'registro')}.xlsx`);
+  const ws2 = XLSX.utils.aoa_to_sheet(cardio); ws2['!cols'] = [{wch:8},{wch:13},{wch:13},{wch:20},{wch:18},{wch:18},{wch:35},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Cardio');
+
+  const evo = [['Semana', 'Distancia total (km)', 'Sesiones completadas']];
+  for (let w = 1; w <= state.config.weeks; w++) {
+    let d = 0, done = 0;
+    state.config.cardioDays.forEach(day => { const c = getCardioRecord(w, day.id); if (c.distance !== '') d += Number(c.distance) || 0; if (c.done) done++; });
+    evo.push([w, Number(d.toFixed(2)), done]);
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(evo), 'Evolución');
+  XLSX.writeFile(wb, 'Entrenamiento_' + safeFilename(state.profile.name || 'registro') + '.xlsx');
   toast('📊 Excel .xlsx generado');
 }
 
-function safeFilename(value) {
-  return String(value)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9 _-]/g, '')
-    .trim()
-    .replace(/\s+/g, '_');
-}
-
 /* -------------------- PDF HORIZONTAL -------------------- */
-
-function printPDF() {
-  buildPrintArea();
-  window.print();
-}
-
+function printPDF(){ buildPrintArea(); window.print(); }
 function buildPrintArea(){
-  const area=document.getElementById('printArea');
-  let html=`<div style="font-family:Arial,sans-serif">
-    <h1 style="font-size:14px;margin:0 0 2px">🏋️ Registro de entrenamiento · 12 semanas</h1>
-    <div style="font-size:7px;margin-bottom:3px"><strong>${escapeHtml(state.profile.name||'')}</strong> · Inicio: ${escapeHtml(formatDate(state.profile.startDate)||'—')}</div>`;
-  Object.keys(plan).forEach(day=>{
-    html+=`<div style="margin-bottom:2px;break-inside:avoid;page-break-inside:avoid">
-      <h2 style="font-size:8px;margin:2px 0">${plan[day].emoji} ${escapeHtml(plan[day].fullName)}</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:5px;line-height:1">
-      <thead><tr><th style="border:1px solid #94a3b8;padding:1px;text-align:left;width:17%">Ejercicio</th><th style="border:1px solid #94a3b8;padding:1px;width:5%">Reps</th>${Array.from({length:12},(_,i)=>`<th style="border:1px solid #94a3b8;padding:1px">S${i+1}<br><span style="font-weight:normal">series/kg</span></th>`).join('')}</tr></thead><tbody>`;
-    plan[day].exercises.forEach((ex,i)=>{
-      html+=`<tr><td style="border:1px solid #94a3b8;padding:1px;text-align:left">${escapeHtml(ex.name)}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(ex.reps)}</td>`;
-      for(let w=1;w<=12;w++){const r=getRecord(w,day,i);html+=`<td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(r.sets||'—')}/${escapeHtml(r.weight||'—')}${r.done?' ✓':''}</td>`;}
-      html+='</tr>';
-    });
-    html+='</tbody></table></div>';
-  });
-  html+=`<div style="margin-top:2px;break-inside:avoid;page-break-inside:avoid"><h2 style="font-size:8px;margin:2px 0">❤️ Cardio · 4 días por semana</h2>
-  <table style="width:100%;border-collapse:collapse;font-size:5px;line-height:1"><thead><tr>
-  <th style="border:1px solid #94a3b8;padding:1px">S</th><th style="border:1px solid #94a3b8;padding:1px">Día</th><th style="border:1px solid #94a3b8;padding:1px">Actividad</th><th style="border:1px solid #94a3b8;padding:1px">Km</th><th style="border:1px solid #94a3b8;padding:1px">Tiempo medio</th><th style="border:1px solid #94a3b8;padding:1px">Notas</th><th style="border:1px solid #94a3b8;padding:1px">✓</th></tr></thead><tbody>`;
-  for(let w=1;w<=12;w++) cardioDays.forEach(day=>{const c=getCardioRecord(w,day);html+=`<tr><td style="border:1px solid #94a3b8;padding:1px">${w}</td><td style="border:1px solid #94a3b8;padding:1px">${cardioDayLabels[day]}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(c.activity)}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(c.distance||'—')}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(c.avgTime||'—')}</td><td style="border:1px solid #94a3b8;padding:1px">${escapeHtml(c.notes||'')}</td><td style="border:1px solid #94a3b8;padding:1px">${c.done?'✓':''}</td></tr>`;});
-  html+=`</tbody></table></div><p style="font-size:5px;color:#64748b;margin-top:2px">✓ = realizado. Fuerza: series/peso máximo en kg. Cardio: distancia y tiempo medio.</p></div>`;
-  area.innerHTML=html;
-}
+  const area = $('printArea');
+  const weeks = state.config.weeks;
+  let html = '<div style="font-family:Arial,sans-serif">' +
+    '<h1 style="font-size:14px;margin:0 0 2px">🏋️ Registro de entrenamiento</h1>' +
+    '<div style="font-size:7px;margin-bottom:3px"><strong>' + esc(state.profile.name || '') + '</strong> · Inicio: ' + esc(formatDate(state.profile.startDate) || '—') + '</div>';
 
+  state.config.strengthDays.forEach(day => {
+    (day.blocks || []).forEach((block, bi) => {
+      const blockTo = Math.min(blockToWeek(day, bi, weeks), weeks);
+      if (block.fromWeek > weeks || blockTo < block.fromWeek || !block.exercises.length) return;
+      const rangeText = blockTo > block.fromWeek ? ('Semanas ' + block.fromWeek + '-' + blockTo) : ('Semana ' + block.fromWeek);
+      html += '<div style="margin-bottom:2px;break-inside:avoid;page-break-inside:avoid">' +
+        '<h2 style="font-size:8px;margin:2px 0">' + day.emoji + ' ' + esc(WEEKDAY_LABELS[day.weekday]) + ' · ' + esc(day.name) + ' · ' + esc(rangeText) + '</h2>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:5px;line-height:1">' +
+        '<thead><tr><th style="border:1px solid #94a3b8;padding:1px;text-align:left;width:17%">Ejercicio</th><th style="border:1px solid #94a3b8;padding:1px;width:5%">Reps</th>' +
+        Array.from({ length: blockTo - block.fromWeek + 1 }, (_, i) => '<th style="border:1px solid #94a3b8;padding:1px">S' + (block.fromWeek + i) + '<br><span style="font-weight:normal">series/kg</span></th>').join('') +
+        '</tr></thead><tbody>';
+      block.exercises.forEach(ex => {
+        html += '<tr><td style="border:1px solid #94a3b8;padding:1px;text-align:left">' + esc(ex.name) + '</td><td style="border:1px solid #94a3b8;padding:1px">' + esc(ex.reps) + '</td>';
+        for (let w = block.fromWeek; w <= blockTo; w++) { const r = getRecord(w, day.id, ex.id); html += '<td style="border:1px solid #94a3b8;padding:1px">' + esc(r.sets || '—') + '/' + esc(r.weight || '—') + (r.done ? ' ✓' : '') + '</td>'; }
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    });
+  });
+
+  if (state.config.cardioDays.length) {
+    html += '<div style="margin-top:2px;break-inside:avoid;page-break-inside:avoid"><h2 style="font-size:8px;margin:2px 0">❤️ Cardio</h2>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:5px;line-height:1"><thead><tr>' +
+      '<th style="border:1px solid #94a3b8;padding:1px">S</th><th style="border:1px solid #94a3b8;padding:1px">Día</th><th style="border:1px solid #94a3b8;padding:1px">Actividad</th><th style="border:1px solid #94a3b8;padding:1px">Km</th><th style="border:1px solid #94a3b8;padding:1px">Tiempo medio</th><th style="border:1px solid #94a3b8;padding:1px">Notas</th><th style="border:1px solid #94a3b8;padding:1px">✓</th></tr></thead><tbody>';
+    for (let w = 1; w <= weeks; w++) state.config.cardioDays.forEach(day => {
+      const c = getCardioRecord(w, day.id);
+      html += '<tr><td style="border:1px solid #94a3b8;padding:1px">' + w + '</td><td style="border:1px solid #94a3b8;padding:1px">' + esc(WEEKDAY_LABELS[day.weekday]) + '</td><td style="border:1px solid #94a3b8;padding:1px">' + esc(c.activity) + '</td><td style="border:1px solid #94a3b8;padding:1px">' + esc(c.distance || '—') + '</td><td style="border:1px solid #94a3b8;padding:1px">' + esc(c.avgTime || '—') + '</td><td style="border:1px solid #94a3b8;padding:1px">' + esc(c.notes || '') + '</td><td style="border:1px solid #94a3b8;padding:1px">' + (c.done ? '✓' : '') + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  html += '<p style="font-size:5px;color:#64748b;margin-top:2px">✓ = realizado. Fuerza: series/peso máximo en kg. Cardio: distancia y tiempo medio.</p></div>';
+  area.innerHTML = html;
+}
 
 /* -------------------- COPIA DE SEGURIDAD -------------------- */
 function exportBackup(){
-  const backup={app:'Mi Entrenamiento · 12 semanas',version:3,exportedAt:new Date().toISOString(),state};
-  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json;charset=utf-8'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=`Backup_Entrenamiento_${safeFilename(state.profile.name||'registro')}.json`;
-  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500);
+  const backup = { app: 'Mi Entrenamiento', version: 3, exportedAt: new Date().toISOString(), state };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'Backup_Entrenamiento_' + safeFilename(state.profile.name || 'registro') + '.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 500);
   toast('💾 Copia de seguridad guardada');
 }
 function importBackup(event){
-  const file=event.target.files&&event.target.files[0]; if(!file)return;
-  const reader=new FileReader();
-  reader.onload=()=>{
-    try{
-      const parsed=JSON.parse(reader.result),incoming=parsed.state||parsed;
-      if(!incoming||typeof incoming!=='object'||!incoming.profile||!incoming.records)throw new Error();
-      if(!confirm('¿Quieres restaurar esta copia?\\n\\nLos datos actuales serán sustituidos por los de la copia.')){event.target.value='';return;}
-      state={profile:{name:String(incoming.profile.name||''),startDate:String(incoming.profile.startDate||'')},records:incoming.records||{}};
-      saveState();currentWeek=1;currentDay='monday';currentExercise=0;renderAll();toast('📥 Copia restaurada correctamente');
-    }catch(e){alert('No se pudo restaurar la copia. Usa un JSON generado por esta aplicación.')}
-    event.target.value='';
+  const file = event.target.files && event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const incoming = parsed.state || parsed;
+      if (!incoming || typeof incoming !== 'object' || !incoming.profile || !incoming.records) throw new Error('formato no reconocido');
+      if (!confirm('¿Quieres restaurar esta copia?\n\nLos datos actuales serán sustituidos por los de la copia.')) { event.target.value = ''; return; }
+      state = incoming.config ? normalizeState(incoming) : normalizeState(migrateLegacy(incoming));
+      saveState(state);
+      currentWeek = 1; currentExercise = 0;
+      currentDay = state.config.strengthDays[0] ? state.config.strengthDays[0].id : null;
+      currentCardioDay = state.config.cardioDays[0] ? state.config.cardioDays[0].id : null;
+      renderAll();
+      toast('📥 Copia restaurada correctamente');
+    } catch (e) { alert('No se pudo restaurar la copia. Usa un JSON generado por esta aplicación.'); }
+    event.target.value = '';
   };
   reader.readAsText(file);
 }
 
 /* -------------------- BORRADO -------------------- */
-
-function resetRecords() {
-  const confirmation = confirm(
-    '¿Quieres borrar todos los registros de las 12 semanas?\\n\\n' +
-    'El nombre y la fecha de inicio NO se borrarán.'
-  );
-
-  if (!confirmation) return;
-
-  state.records = {};
-  saveState();
-
-  renderAll();
+function resetRecords(){
+  if (!confirm('¿Quieres borrar todos los registros de entrenamiento?\n\nEl plan (días y ejercicios), el nombre y la fecha de inicio NO se borrarán.')) return;
+  state.records = {}; saveState(); renderAll();
   toast('🗑️ Registros borrados');
 }
 
-/* -------------------- RENDER GENERAL -------------------- */
+/* -------------------- TEMA -------------------- */
+const THEME_KEY = 'gym_theme_v1';
+function applyTheme(theme){ document.documentElement.classList.toggle('dark', theme === 'dark'); $('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙'; }
+function toggleTheme(){ const next = document.documentElement.classList.contains('dark') ? 'light' : 'dark'; try { localStorage.setItem(THEME_KEY, next); } catch (e) {} applyTheme(next); }
 
-function renderAll() {
+/* -------------------- MANIFEST DINÁMICO -------------------- */
+function setupManifest(){
+  try {
+    const iconSvg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230f172a'/><text x='50' y='66' font-size='54' text-anchor='middle'>🏋️</text></svg>";
+    const iconUrl = 'data:image/svg+xml,' + encodeURIComponent(iconSvg);
+    const manifest = { name: 'Mi Entrenamiento', short_name: 'Entreno', start_url: '.', display: 'standalone', background_color: '#0f172a', theme_color: '#0f172a', icons: [{ src: iconUrl, sizes: 'any', type: 'image/svg+xml', purpose: 'any' }] };
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    const link = document.createElement('link'); link.rel = 'manifest'; link.href = URL.createObjectURL(blob);
+    document.head.appendChild(link);
+  } catch (e) { console.error('No se pudo generar el manifest.', e); }
+}
+
+/* -------------------- RENDER GENERAL -------------------- */
+function renderAll(){
   renderProfile();
   renderWeekNavigation();
   renderDayTabs();
   renderDay();
-
   renderCardio();
-  updateCardioSummary();
+  renderStrengthEvolution();
+}
+
+/* -------------------- EVENTOS -------------------- */
+function wireEvents(){
+  $('openProfileBtn').addEventListener('click', openProfile);
+  $('closeProfileBtn').addEventListener('click', closeProfile);
+  $('cancelProfileBtn').addEventListener('click', closeProfile);
+  $('profileForm').addEventListener('submit', saveProfile);
+  $('setupForm').addEventListener('submit', saveInitialProfile);
+  $('themeToggle').addEventListener('click', toggleTheme);
+
+  $('openPlanEditorBtn').addEventListener('click', openPlanEditor);
+  $('openPlanEditorFromProfile').addEventListener('click', () => { closeProfile(); openPlanEditor(); });
+  $('closePlanEditorBtn').addEventListener('click', closePlanEditor);
+  $('cancelPlanEditorBtn').addEventListener('click', closePlanEditor);
+  $('savePlanEditorBtn').addEventListener('click', savePlanEditor);
+  $('planEditorBody').addEventListener('change', planEditorHandleChange);
+  $('planEditorBody').addEventListener('click', planEditorHandleClick);
+
+  $('weekPrev').addEventListener('click', () => changeWeek(-1));
+  $('weekNext').addEventListener('click', () => changeWeek(1));
+  $('weekJumpBack').addEventListener('click', () => jumpWeek(-3));
+  $('weekJumpFwd').addEventListener('click', () => jumpWeek(3));
+  $('weekSelect').addEventListener('change', e => selectWeekFromSelect(e.target.value));
+
+  $('dayTabs').addEventListener('click', e => { const t = e.target.closest('[data-day-id]'); if (t) selectDay(t.dataset.dayId); });
+  $('dayPanel').addEventListener('click', e => {
+    const t = e.target.closest('[data-action]'); if (!t) return;
+    const index = t.dataset.index != null ? +t.dataset.index : null;
+    if (t.dataset.action === 'change-sets') changeSets(index, +t.dataset.delta);
+    else if (t.dataset.action === 'change-weight') changeWeight(index, +t.dataset.delta);
+    else if (t.dataset.action === 'toggle-done') { if (t.type === 'checkbox') toggleDone(index, t.checked); else toggleDone(index, t.dataset.invert ? !getRecordCurrentDone(index) : true); }
+    else if (t.id === 'copyPrevWeekBtn') copyPreviousWeekStrength();
+  });
+  $('dayPanel').addEventListener('change', e => {
+    const t = e.target.closest('[data-action="save-input"]'); if (!t) return;
+    saveInput(+t.dataset.index, t.dataset.field, t.value);
+  });
+  $('saveAndNextBtn').addEventListener('click', saveAndNext);
+
+  $('cardioTabs').addEventListener('click', e => { const t = e.target.closest('[data-cardio-day-id]'); if (t) selectCardioDay(t.dataset.cardioDayId); });
+  $('cardioDone').addEventListener('change', e => saveSelectedCardio('done', e.target.checked));
+  $('cardioActivity').addEventListener('change', e => saveSelectedCardio('activity', e.target.value));
+  $('cardioDistance').addEventListener('change', e => saveSelectedCardio('distance', e.target.value));
+  $('cardioAvgTime').addEventListener('change', e => saveSelectedCardio('avgTime', e.target.value));
+  $('cardioNotes').addEventListener('change', e => saveSelectedCardio('notes', e.target.value));
+  $('cardioSaveBtn').addEventListener('click', () => saveSelectedCardio('done', true));
+
+  $('strengthEvoSelect').addEventListener('change', renderStrengthEvolution);
+
+  $('btnExportExcel').addEventListener('click', exportExcel);
+  $('btnExportBackup').addEventListener('click', exportBackup);
+  $('restoreInput').addEventListener('change', importBackup);
+  $('btnPrintPdf').addEventListener('click', printPDF);
+  $('btnResetRecords').addEventListener('click', resetRecords);
+}
+function getRecordCurrentDone(index){
+  const day = getStrengthDay(currentDay); if (!day) return false;
+  const ex = getDayExercises(day, currentWeek)[index]; if (!ex) return false;
+  return getRecord(currentWeek, day.id, ex.id).done;
 }
 
 /* -------------------- SWIPE DE SEMANAS -------------------- */
-
-let touchStartX = 0;
-let touchStartY = 0;
-
+let touchStartX = 0, touchStartY = 0;
 document.addEventListener('touchstart', event => {
   if (!isMobile()) return;
-
-  const touch = event.changedTouches[0];
-  touchStartX = touch.screenX;
-  touchStartY = touch.screenY;
+  const touch = event.changedTouches[0]; touchStartX = touch.screenX; touchStartY = touch.screenY;
 }, { passive: true });
-
 document.addEventListener('touchend', event => {
   if (!isMobile()) return;
-
   const touch = event.changedTouches[0];
-  const dx = touch.screenX - touchStartX;
-  const dy = touch.screenY - touchStartY;
-
-  if (Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 1.4) {
-    return;
-  }
-
-  if (dx < 0 && currentWeek < 12) {
-    currentWeek++;
-    currentExercise = 0;
-    renderAll();
-    toast(`Semana ${currentWeek}`);
-  }
-
-  if (dx > 0 && currentWeek > 1) {
-    currentWeek--;
-    currentExercise = 0;
-    renderAll();
-    toast(`Semana ${currentWeek}`);
-  }
+  const dx = touch.screenX - touchStartX, dy = touch.screenY - touchStartY;
+  if (Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+  if (dx < 0 && currentWeek < state.config.weeks) { currentWeek++; currentExercise = 0; renderAll(); toast('Semana ' + currentWeek); }
+  if (dx > 0 && currentWeek > 1) { currentWeek--; currentExercise = 0; renderAll(); toast('Semana ' + currentWeek); }
 }, { passive: true });
 
 /* -------------------- INICIO -------------------- */
-
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('initialDate').value = localISODate();
-
-  if (state.profile.name && state.profile.startDate) {
-    document.getElementById('setupModal').style.display = 'none';
-  }
-
+  $('initialDate').value = localISODate();
+  if (state.profile.name && state.profile.startDate) $('setupModal').style.display = 'none';
+  try { applyTheme(localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'); } catch (e) { applyTheme('light'); }
+  wireEvents();
+  setupManifest();
   renderAll();
 });
-
-window.addEventListener('resize', () => {
-  /* No recarga datos: solo asegura que el layout se adapte */
-  updateAllStats();
-});
+window.addEventListener('resize', () => { updateAllStats(); });
 </script>
 
 </body>
